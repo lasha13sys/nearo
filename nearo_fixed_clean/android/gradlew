@@ -1,0 +1,4 @@
+#!/usr/bin/env sh
+# Lightweight fallback wrapper for this generated package.
+# If Gradle is not available in PATH, run: flutter create . --platforms=android
+exec gradle "$@"

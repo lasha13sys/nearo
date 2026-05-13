@@ -1,0 +1,12 @@
+{
+  "name": "Nearo",
+  "short_name": "Nearo",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#0B0D12",
+  "theme_color": "#D6A84F",
+  "description": "Connect with people nearby inside the same venue.",
+  "orientation": "portrait-primary",
+  "prefer_related_applications": false,
+  "icons": []
+}
