@@ -52,17 +52,20 @@ final notificationServiceProvider = Provider<NotificationService>((ref) {
 
 final authControllerProvider = StateNotifierProvider<AuthController, AsyncValue<AppUser?>>((ref) {
   return AuthController(
+    ref: ref,
     authRepository: ref.watch(authRepositoryProvider),
     userRepository: ref.watch(userRepositoryProvider),
   );
 });
 
 class AuthController extends StateNotifier<AsyncValue<AppUser?>> {
+  final Ref ref;
   final AuthRepository _authRepository;
   final UserRepository _userRepository;
   StreamSubscription<AppUser?>? _subscription;
 
   AuthController({
+    required this.ref,
     required AuthRepository authRepository,
     required UserRepository userRepository,
   })  : _authRepository = authRepository,
@@ -80,6 +83,7 @@ class AuthController extends StateNotifier<AsyncValue<AppUser?>> {
       final user = await _authRepository.signIn(email: email, password: password);
       await _userRepository.ensureUserProfile(appUser: user);
       state = AsyncData(user);
+      _syncFcmToken(user.uid);
     } catch (error, stackTrace) {
       state = AsyncError(error, stackTrace);
     }
@@ -100,6 +104,7 @@ class AuthController extends StateNotifier<AsyncValue<AppUser?>> {
       );
       await _userRepository.ensureUserProfile(appUser: user, age: age);
       state = AsyncData(user);
+      _syncFcmToken(user.uid);
     } catch (error, stackTrace) {
       state = AsyncError(error, stackTrace);
     }
@@ -112,6 +117,15 @@ class AuthController extends StateNotifier<AsyncValue<AppUser?>> {
   Future<void> signOut() async {
     await _authRepository.signOut();
     state = const AsyncData(null);
+  }
+
+  Future<void> _syncFcmToken(String uid) async {
+    final token = _authRepository.firebaseReady
+        ? await ref.read(notificationServiceProvider).requestAndGetToken()
+        : null;
+    if (token != null) {
+      await _userRepository.updateFcmToken(uid: uid, token: token);
+    }
   }
 
   @override

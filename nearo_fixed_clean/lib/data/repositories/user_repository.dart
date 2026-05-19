@@ -87,6 +87,14 @@ class UserRepository {
     });
   }
 
+  Future<void> updateFcmToken({required String uid, required String? token}) async {
+    if (!firebaseReady || _firestore == null || uid == 'demo-user') return;
+    await _firestore.collection(FirebaseCollections.users).doc(uid).update({
+      'fcmToken': token,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
   Future<void> updateWifiHash({required String uid, required String? wifiHash}) async {
     if (!firebaseReady || _firestore == null || uid == 'demo-user') return;
     await _firestore.collection(FirebaseCollections.users).doc(uid).update({

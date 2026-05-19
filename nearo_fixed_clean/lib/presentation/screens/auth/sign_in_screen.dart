@@ -137,8 +137,8 @@ class _BrandHeader extends StatelessWidget {
             shape: BoxShape.circle,
             gradient: RadialGradient(
               colors: [
-                NearoTheme.gold.withOpacity(0.95),
-                NearoTheme.neon.withOpacity(0.45),
+                NearoTheme.gold.withValues(alpha: 0.95),
+                NearoTheme.neon.withValues(alpha: 0.45),
                 Colors.transparent,
               ],
             ),
@@ -172,9 +172,9 @@ class _DemoModeNotice extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: NearoTheme.gold.withOpacity(0.12),
+        color: NearoTheme.gold.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: NearoTheme.gold.withOpacity(0.25)),
+        border: Border.all(color: NearoTheme.gold.withValues(alpha: 0.25)),
       ),
       child: const Text(
         'Firebase is not configured with real credentials yet. The app can still run in demo mode.',

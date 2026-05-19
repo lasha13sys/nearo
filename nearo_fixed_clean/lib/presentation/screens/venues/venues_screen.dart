@@ -99,7 +99,7 @@ class _EnergyBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
-        color: NearoTheme.gold.withOpacity(0.14),
+        color: NearoTheme.gold.withValues(alpha: 0.14),
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text('$value energy'),
@@ -117,7 +117,7 @@ class _Chip extends StatelessWidget {
     return Chip(
       label: Text(label),
       backgroundColor: NearoTheme.elevated,
-      side: BorderSide(color: Colors.white.withOpacity(0.06)),
+      side: BorderSide(color: Colors.white.withValues(alpha: 0.06)),
     );
   }
 }

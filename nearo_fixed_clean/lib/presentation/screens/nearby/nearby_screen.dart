@@ -81,7 +81,7 @@ class _NearbyUserCardState extends ConsumerState<_NearbyUserCard> {
           children: [
             CircleAvatar(
               radius: 30,
-              backgroundColor: NearoTheme.gold.withOpacity(0.18),
+              backgroundColor: NearoTheme.gold.withValues(alpha: 0.18),
               child: Text(widget.user.displayName.isEmpty ? '?' : widget.user.displayName[0].toUpperCase()),
             ),
             const SizedBox(width: 14),
@@ -132,8 +132,8 @@ class _DemoBanner extends StatelessWidget {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(18),
-        color: NearoTheme.neon.withOpacity(0.14),
-        border: Border.all(color: NearoTheme.neon.withOpacity(0.2)),
+        color: NearoTheme.neon.withValues(alpha: 0.14),
+        border: Border.all(color: NearoTheme.neon.withValues(alpha: 0.2)),
       ),
       child: const Text('Demo mode: Firebase is not connected, so nearby people are sample data.'),
     );
