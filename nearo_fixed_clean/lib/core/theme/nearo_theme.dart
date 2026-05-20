@@ -45,7 +45,7 @@ class NearoTheme {
         elevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(24),
-          side: BorderSide(color: Colors.white.withOpacity(0.06)),
+          side: BorderSide(color: Colors.white.withValues(alpha: 0.06)),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
@@ -57,7 +57,7 @@ class NearoTheme {
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(18),
-          borderSide: BorderSide(color: Colors.white.withOpacity(0.08)),
+          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08)),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(18),
@@ -78,7 +78,7 @@ class NearoTheme {
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           foregroundColor: text,
-          side: BorderSide(color: Colors.white.withOpacity(0.12)),
+          side: BorderSide(color: Colors.white.withValues(alpha: 0.12)),
           minimumSize: const Size.fromHeight(52),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(18),

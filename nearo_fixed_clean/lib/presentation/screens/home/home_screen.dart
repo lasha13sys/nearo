@@ -30,7 +30,7 @@ class _HomeScreenState extends State<HomeScreen> {
       bottomNavigationBar: DecoratedBox(
         decoration: BoxDecoration(
           color: NearoTheme.surface,
-          border: Border(top: BorderSide(color: Colors.white.withOpacity(0.06))),
+          border: Border(top: BorderSide(color: Colors.white.withValues(alpha: 0.06))),
         ),
         child: BottomNavigationBar(
           currentIndex: _index,

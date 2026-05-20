@@ -40,7 +40,7 @@ class ProfileScreen extends ConsumerWidget {
                         children: [
                           CircleAvatar(
                             radius: 34,
-                            backgroundColor: NearoTheme.gold.withOpacity(0.18),
+                            backgroundColor: NearoTheme.gold.withValues(alpha: 0.18),
                             child: Text(
                               item.displayName.isEmpty ? '?' : item.displayName[0].toUpperCase(),
                               style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w800),
@@ -81,12 +81,12 @@ class ProfileScreen extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 16),
-              Card(
+              const Card(
                 child: Padding(
-                  padding: const EdgeInsets.all(18),
+                  padding: EdgeInsets.all(18),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    children: const [
+                    children: [
                       Text('Safety', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
                       SizedBox(height: 8),
                       Text('Meet in public places, respect boundaries, and use reporting tools if someone behaves inappropriately.'),

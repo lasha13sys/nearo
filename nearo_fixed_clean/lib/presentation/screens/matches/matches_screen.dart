@@ -53,7 +53,7 @@ class _MatchCard extends StatelessWidget {
       child: ListTile(
         contentPadding: const EdgeInsets.all(16),
         leading: CircleAvatar(
-          backgroundColor: NearoTheme.gold.withOpacity(0.18),
+          backgroundColor: NearoTheme.gold.withValues(alpha: 0.18),
           child: const Icon(Icons.favorite, color: NearoTheme.gold),
         ),
         title: Text('Match with $otherUserId'),
