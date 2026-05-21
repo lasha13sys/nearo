@@ -13,12 +13,17 @@ service cloud.firestore {
       return request.resource.data.age is int && request.resource.data.age >= 18;
     }
 
-    function isParticipantByIds(user1Id, user2Id) {
-      return signedIn() && (request.auth.uid == user1Id || request.auth.uid == user2Id);
+    function inList(list) {
+      return signedIn() && request.auth.uid in list;
+    }
+
+    function matchParticipant(matchId) {
+      return signedIn()
+        && request.auth.uid in get(/databases/$(database)/documents/matches/$(matchId)).data.userIds;
     }
 
     function conversationParticipants(convId) {
-      return get(/databases/$(database)/documents/conversations/$(convId)).data.participants;
+      return get(/databases/$(database)/documents/conversations/$(convId)).data.userIds;
     }
 
     match /users/{uid} {
@@ -26,12 +31,20 @@ service cloud.firestore {
       allow create: if isSelf(uid)
         && isAdultProfile()
         && request.resource.data.isBanned == false
-        && request.resource.data.isVerified == false;
+        && request.resource.data.visible is bool
+        && request.resource.data.phoneNumber == ''
+        && request.resource.data.socials == {};
       allow update: if isSelf(uid)
+        && request.resource.data.phoneNumber == ''
+        && request.resource.data.socials == {}
         && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
           'isBanned', 'isVerified', 'matchesCount', 'signalsSent', 'createdAt'
         ]);
       allow delete: if false;
+
+      match /private/{docId} {
+        allow read, write: if isSelf(uid);
+      }
     }
 
     match /signals/{signalId} {
@@ -56,11 +69,40 @@ service cloud.firestore {
     }
 
     match /matches/{matchId} {
-      allow read: if isParticipantByIds(resource.data.user1Id, resource.data.user2Id);
+      allow read: if inList(resource.data.userIds);
       allow create: if false;
-      allow update: if isParticipantByIds(resource.data.user1Id, resource.data.user2Id)
+      allow update: if inList(resource.data.userIds)
         && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
-          'user1Id', 'user2Id', 'createdAt'
+          'userIds', 'user1Id', 'user2Id', 'createdAt', 'conversationId', 'connectionId'
+        ]);
+      allow delete: if false;
+    }
+
+    match /connections/{connectionId} {
+      allow read: if inList(resource.data.userIds);
+      allow create: if false;
+      allow update: if inList(resource.data.userIds)
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+          'userIds', 'matchId', 'createdAt', 'expiresAt'
+        ]);
+      allow delete: if false;
+    }
+
+    match /contactReveals/{revealId} {
+      allow read: if signedIn()
+        && (request.auth.uid == resource.data.requesterId || request.auth.uid == resource.data.receiverId);
+      allow create: if signedIn()
+        && request.auth.uid == request.resource.data.requesterId
+        && matchParticipant(request.resource.data.matchId)
+        && request.resource.data.status == 'requested'
+        && request.resource.data.revealedValue == null;
+      allow update: if signedIn()
+        && request.auth.uid == resource.data.receiverId
+        && resource.data.status == 'requested'
+        && request.resource.data.revealedValue == null
+        && request.resource.data.status in ['approved', 'declined']
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+          'matchId', 'requesterId', 'receiverId', 'contactType', 'createdAt', 'expiresAt'
         ]);
       allow delete: if false;
     }
@@ -70,12 +112,24 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    match /venueEvents/{eventId} {
+      allow read: if signedIn();
+      allow write: if false;
+    }
+
+    match /icebreakers/{icebreakerId} {
+      allow read: if signedIn();
+      allow write: if false;
+    }
+
     match /conversations/{conversationId} {
-      allow read: if signedIn() && request.auth.uid in resource.data.participants;
-      allow create: if signedIn()
-        && request.auth.uid in request.resource.data.participants
-        && request.resource.data.participants.size() == 2;
-      allow update: if signedIn() && request.auth.uid in resource.data.participants;
+      allow read: if signedIn() && request.auth.uid in resource.data.userIds;
+      allow create: if false;
+      allow update: if signedIn()
+        && request.auth.uid in resource.data.userIds
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
+          'userIds', 'participants', 'matchId', 'createdAt'
+        ]);
       allow delete: if false;
 
       match /messages/{messageId} {
@@ -86,9 +140,15 @@ service cloud.firestore {
           && request.resource.data.text is string
           && request.resource.data.text.size() > 0
           && request.resource.data.text.size() <= 1000;
-        allow update: if signedIn() && request.auth.uid in conversationParticipants(conversationId);
-        allow delete: if false;
+        allow update, delete: if false;
       }
+    }
+
+    match /blocks/{blockId} {
+      allow read: if signedIn()
+        && (request.auth.uid == resource.data.blockerId || request.auth.uid == resource.data.blockedUserId);
+      allow create: if signedIn() && request.resource.data.blockerId == request.auth.uid;
+      allow update, delete: if false;
     }
 
     match /reports/{reportId} {
@@ -97,6 +157,10 @@ service cloud.firestore {
         && request.resource.data.reportedUserId is string
         && request.resource.data.reason is string;
       allow read, update, delete: if false;
+    }
+
+    match /moderationQueue/{itemId} {
+      allow read, write: if false;
     }
   }
 }

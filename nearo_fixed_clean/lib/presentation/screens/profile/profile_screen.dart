@@ -41,10 +41,13 @@ class ProfileScreen extends ConsumerWidget {
                           CircleAvatar(
                             radius: 34,
                             backgroundColor: NearoTheme.gold.withValues(alpha: 0.18),
-                            child: Text(
-                              item.displayName.isEmpty ? '?' : item.displayName[0].toUpperCase(),
-                              style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w800),
-                            ),
+                            backgroundImage: item.photoUrl.isEmpty ? null : NetworkImage(item.photoUrl),
+                            child: item.photoUrl.isEmpty
+                                ? Text(
+                                    item.nickname.isEmpty ? '?' : item.nickname.substring(0, 1).toUpperCase(),
+                                    style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w800),
+                                  )
+                                : null,
                           ),
                           const SizedBox(width: 16),
                           Expanded(
@@ -52,10 +55,12 @@ class ProfileScreen extends ConsumerWidget {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  item.displayName,
+                                  item.nickname,
                                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
                                 ),
-                                Text(user.email, style: const TextStyle(color: NearoTheme.mutedText)),
+                                Text(user.phoneNumber, style: const TextStyle(color: NearoTheme.mutedText)),
+                                if (item.mood != null)
+                                  Text(item.mood!, style: const TextStyle(color: NearoTheme.gold)),
                               ],
                             ),
                           ),
@@ -81,15 +86,21 @@ class ProfileScreen extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 16),
-              const Card(
+              Card(
                 child: Padding(
-                  padding: EdgeInsets.all(18),
+                  padding: const EdgeInsets.all(18),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Safety', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
-                      SizedBox(height: 8),
-                      Text('Meet in public places, respect boundaries, and use reporting tools if someone behaves inappropriately.'),
+                      const Text('Safety', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+                      const SizedBox(height: 8),
+                      const Text('Meet in public places, respect boundaries, and use reporting tools if someone behaves inappropriately.'),
+                      const SizedBox(height: 12),
+                      OutlinedButton.icon(
+                        onPressed: () {},
+                        icon: const Icon(Icons.shield_outlined),
+                        label: const Text('Report and block tools are available from match actions'),
+                      ),
                     ],
                   ),
                 ),

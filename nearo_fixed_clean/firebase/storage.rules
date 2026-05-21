@@ -14,9 +14,10 @@ service firebase.storage {
       allow delete: if signedIn() && request.auth.uid == uid;
     }
 
-    match /chat/{conversationId}/{allPaths=**} {
-      allow read: if signedIn();
+    match /chat/{conversationId}/{userId}/{allPaths=**} {
+      allow read: if signedIn() && request.auth.uid == userId;
       allow create, update: if signedIn()
+        && request.auth.uid == userId
         && request.resource.size < 10 * 1024 * 1024
         && request.resource.contentType.matches('image/.*');
       allow delete: if false;

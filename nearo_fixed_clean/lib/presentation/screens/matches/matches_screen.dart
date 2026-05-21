@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/providers/app_providers.dart';
 import '../../../core/theme/nearo_theme.dart';
 import '../../../domain/entities/match.dart';
-import '../chat/conversation_screen.dart';
+import 'match_interaction_screen.dart';
 
 class MatchesScreen extends ConsumerWidget {
   const MatchesScreen({super.key});
@@ -19,7 +19,7 @@ class MatchesScreen extends ConsumerWidget {
       body: matches.when(
         data: (items) {
           if (items.isEmpty) {
-            return const Center(child: Text('No matches yet. Send a signal to someone nearby.'));
+            return const Center(child: Text('No matches yet. Send a Spark to someone nearby.'));
           }
           return ListView.builder(
             padding: const EdgeInsets.all(16),
@@ -46,25 +46,23 @@ class _MatchCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final otherUserId = match.otherUserId(currentUserId);
-    final conversationId = match.conversationId ?? match.id;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 14),
       child: ListTile(
         contentPadding: const EdgeInsets.all(16),
         leading: CircleAvatar(
-          backgroundColor: NearoTheme.gold.withValues(alpha: 0.18),
-          child: const Icon(Icons.favorite, color: NearoTheme.gold),
+          backgroundColor: NearoTheme.neon.withValues(alpha: 0.18),
+          child: const Icon(Icons.favorite, color: NearoTheme.neon),
         ),
-        title: Text('Match with $otherUserId'),
-        subtitle: Text('Created ${match.createdAt.toLocal()}'),
+        title: Text(otherUserId.isEmpty ? 'Nearo match' : 'Match with $otherUserId'),
+        subtitle: Text('Choose how to start. Created ${TimeOfDay.fromDateTime(match.createdAt).format(context)}'),
         trailing: const Icon(Icons.chevron_right),
         onTap: () => Navigator.of(context).push(
           MaterialPageRoute<void>(
-            builder: (_) => ConversationScreen(
-              conversationId: conversationId,
+            builder: (_) => MatchInteractionScreen(
+              match: match,
               currentUserId: currentUserId,
-              title: 'Match chat',
             ),
           ),
         ),

@@ -10,9 +10,19 @@ exports.detectMutualSignal = functions.firestore
   .onCreate(async (snapshot) => {
     const signal = snapshot.data();
     if (!signal || signal.status !== 'pending') return null;
+    if (isExpired(signal)) {
+      await snapshot.ref.update({ status: 'expired', updatedAt: fieldValue.serverTimestamp() });
+      return null;
+    }
 
     const { senderId, receiverId } = signal;
     if (!senderId || !receiverId || senderId === receiverId) return null;
+
+    const allowed = await interactionAllowed(senderId, receiverId);
+    if (!allowed) {
+      await snapshot.ref.update({ status: 'blocked', updatedAt: fieldValue.serverTimestamp() });
+      return null;
+    }
 
     const reciprocal = await db
       .collection('signals')
@@ -23,12 +33,16 @@ exports.detectMutualSignal = functions.firestore
       .get();
 
     if (reciprocal.empty) return null;
+    const reciprocalDoc = reciprocal.docs[0];
+    if (isExpired(reciprocalDoc.data())) return null;
 
-    return createMatchFromSignals({
+    return createMatchBundle({
       signalRef: snapshot.ref,
-      reciprocalRef: reciprocal.docs[0].ref,
+      reciprocalRef: reciprocalDoc.ref,
       senderId,
       receiverId,
+      venueId: signal.venueId || null,
+      venueWifiHash: signal.venueWifiHash || null,
       interactionInitiatorId: null,
     });
   });
@@ -41,79 +55,152 @@ exports.handleSignalAcceptance = functions.firestore
 
     if (!before || !after) return null;
     if (before.status !== 'pending' || after.status !== 'accepted') return null;
+    if (isExpired(after)) {
+      await change.after.ref.update({ status: 'expired', updatedAt: fieldValue.serverTimestamp() });
+      return null;
+    }
 
-    return createMatchFromSignals({
+    const allowed = await interactionAllowed(after.senderId, after.receiverId);
+    if (!allowed) {
+      await change.after.ref.update({ status: 'blocked', updatedAt: fieldValue.serverTimestamp() });
+      return null;
+    }
+
+    return createMatchBundle({
       signalRef: change.after.ref,
       reciprocalRef: null,
       senderId: after.senderId,
       receiverId: after.receiverId,
+      venueId: after.venueId || null,
+      venueWifiHash: after.venueWifiHash || null,
       interactionInitiatorId: after.receiverId,
     });
   });
 
-exports.cleanupExpiredSignals = functions.pubsub
+exports.copyApprovedContactReveal = functions.firestore
+  .document('contactReveals/{revealId}')
+  .onUpdate(async (change) => {
+    const before = change.before.data();
+    const after = change.after.data();
+    if (!before || !after) return null;
+    if (before.status === 'approved' || after.status !== 'approved') return null;
+    if (isExpired(after)) {
+      return change.after.ref.update({ status: 'expired', updatedAt: fieldValue.serverTimestamp() });
+    }
+
+    const receiverContact = await db
+      .collection('users')
+      .doc(after.receiverId)
+      .collection('private')
+      .doc('contact')
+      .get();
+
+    const value = contactValue(receiverContact.data(), after.contactType);
+    if (!value) {
+      return change.after.ref.update({
+        status: 'declined',
+        updatedAt: fieldValue.serverTimestamp(),
+      });
+    }
+
+    return change.after.ref.update({
+      revealedValue: value,
+      approvedAt: fieldValue.serverTimestamp(),
+      updatedAt: fieldValue.serverTimestamp(),
+    });
+  });
+
+exports.cleanupExpiredSignalsAndReveals = functions.pubsub
   .schedule('every 15 minutes')
   .onRun(async () => {
     const now = admin.firestore.Timestamp.now();
-    const expired = await db
-      .collection('signals')
-      .where('status', '==', 'pending')
-      .where('expiresAt', '<=', now)
-      .limit(500)
-      .get();
-
-    if (expired.empty) return null;
+    const [expiredSignals, expiredReveals] = await Promise.all([
+      db.collection('signals').where('status', '==', 'pending').where('expiresAt', '<=', now).limit(500).get(),
+      db.collection('contactReveals').where('status', '==', 'requested').where('expiresAt', '<=', now).limit(500).get(),
+    ]);
 
     const batch = db.batch();
-    expired.docs.forEach((doc) => {
-      batch.update(doc.ref, {
-        status: 'expired',
-        updatedAt: fieldValue.serverTimestamp(),
-      });
-    });
+    expiredSignals.docs.forEach((doc) => batch.update(doc.ref, {
+      status: 'expired',
+      updatedAt: fieldValue.serverTimestamp(),
+    }));
+    expiredReveals.docs.forEach((doc) => batch.update(doc.ref, {
+      status: 'expired',
+      updatedAt: fieldValue.serverTimestamp(),
+    }));
+    if (expiredSignals.empty && expiredReveals.empty) return null;
     await batch.commit();
     return null;
   });
 
-async function createMatchFromSignals({
+async function createMatchBundle({
   signalRef,
   reciprocalRef,
   senderId,
   receiverId,
+  venueId,
+  venueWifiHash,
   interactionInitiatorId,
 }) {
-  const [user1Id, user2Id] = [senderId, receiverId].sort();
-  const matchId = `${user1Id}_${user2Id}`;
+  const userIds = [senderId, receiverId].sort();
+  const matchId = `${userIds[0]}_${userIds[1]}`;
   const matchRef = db.collection('matches').doc(matchId);
+  const connectionRef = db.collection('connections').doc(matchId);
+  const conversationRef = db.collection('conversations').doc(matchId);
+  const expiresAt = admin.firestore.Timestamp.fromDate(new Date(Date.now() + 2 * 60 * 60 * 1000));
 
   await db.runTransaction(async (transaction) => {
     const matchSnapshot = await transaction.get(matchRef);
-    if (matchSnapshot.exists && matchSnapshot.data().status === 'active') {
-      return;
-    }
+    if (matchSnapshot.exists && matchSnapshot.data().status === 'active') return;
 
     transaction.set(matchRef, {
-      user1Id,
-      user2Id,
+      userIds,
+      user1Id: userIds[0],
+      user2Id: userIds[1],
       status: 'active',
-      participants: [user1Id, user2Id],
-      archivedBy: [],
-      interactionType: null,
+      conversationId: conversationRef.id,
+      connectionId: connectionRef.id,
+      venueId,
+      venueWifiHash,
       interactionInitiatorId,
-      conversationId: null,
+      expiresAt,
+      lastInteractionAt: fieldValue.serverTimestamp(),
       createdAt: fieldValue.serverTimestamp(),
       updatedAt: fieldValue.serverTimestamp(),
     }, { merge: true });
 
+    transaction.set(connectionRef, {
+      matchId,
+      userIds,
+      status: 'active',
+      selectedOptions: [],
+      interactionInitiatorId,
+      temporaryTimerEndsAt: null,
+      expiresAt,
+      createdAt: fieldValue.serverTimestamp(),
+      updatedAt: fieldValue.serverTimestamp(),
+    }, { merge: true });
+
+    transaction.set(conversationRef, {
+      matchId,
+      userIds,
+      participants: userIds,
+      venueId,
+      createdAt: fieldValue.serverTimestamp(),
+      updatedAt: fieldValue.serverTimestamp(),
+      lastMessage: null,
+      lastMessageAt: null,
+    }, { merge: true });
+
     transaction.update(signalRef, {
-      status: 'accepted',
+      status: 'matched',
       respondedAt: fieldValue.serverTimestamp(),
       updatedAt: fieldValue.serverTimestamp(),
     });
 
     if (reciprocalRef) {
       transaction.update(reciprocalRef, {
-        status: 'accepted',
+        status: 'matched',
         respondedAt: fieldValue.serverTimestamp(),
         updatedAt: fieldValue.serverTimestamp(),
       });
@@ -133,19 +220,46 @@ async function createMatchFromSignals({
   ]);
 }
 
+async function interactionAllowed(userA, userB) {
+  const [a, b] = await Promise.all([
+    db.collection('users').doc(userA).get(),
+    db.collection('users').doc(userB).get(),
+  ]);
+  if (!a.exists || !b.exists) return false;
+  const aData = a.data();
+  const bData = b.data();
+  if (aData.isBanned === true || bData.isBanned === true) return false;
+  if (bData.visible !== true) return false;
+  const aBlocks = aData.blockedUsers || [];
+  const bBlocks = bData.blockedUsers || [];
+  return !aBlocks.includes(userB) && !bBlocks.includes(userA);
+}
+
+function isExpired(data) {
+  if (!data.expiresAt) return false;
+  return data.expiresAt.toMillis() <= Date.now();
+}
+
+function contactValue(data, type) {
+  if (!data) return null;
+  if (type === 'phone') return data.phoneNumber || null;
+  const socials = data.socials || {};
+  return socials[type] || null;
+}
+
 async function sendMatchNotification(userId, matchedUserId, matchId) {
   const userDoc = await db.collection('users').doc(userId).get();
   const token = userDoc.data()?.fcmToken;
   if (!token) return;
 
   const matchedDoc = await db.collection('users').doc(matchedUserId).get();
-  const matchedName = matchedDoc.data()?.displayName || 'Someone nearby';
+  const matchedName = matchedDoc.data()?.nickname || 'Someone nearby';
 
   await admin.messaging().send({
     token,
     notification: {
       title: 'New Nearo match',
-      body: `You matched with ${matchedName}.`,
+      body: `You matched with ${matchedName}. Choose how to start.`,
     },
     data: {
       type: 'match',

@@ -11,8 +11,13 @@ Future<void> main() async {
 
   var firebaseReady = false;
   try {
+    final options = DefaultFirebaseOptions.currentPlatform;
+    final isPlaceholder = options.apiKey == 'demo-api-key' || options.projectId == 'nearo-demo';
+    if (isPlaceholder) {
+      throw StateError('Placeholder Firebase options detected.');
+    }
     await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
+      options: options,
     );
     firebaseReady = true;
   } catch (_) {

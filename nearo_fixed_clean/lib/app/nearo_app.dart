@@ -3,7 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/providers/app_providers.dart';
 import '../core/theme/nearo_theme.dart';
-import '../presentation/screens/auth/sign_in_screen.dart';
+import '../presentation/screens/auth/onboarding_screen.dart';
+import '../presentation/screens/auth/phone_auth_screen.dart';
 import '../presentation/screens/home/home_screen.dart';
 
 class NearoApp extends ConsumerStatefulWidget {
@@ -21,10 +22,14 @@ class _NearoAppState extends ConsumerState<NearoApp> {
   }
 
   Future<void> _initNotifications() async {
-    final token = await ref.read(notificationServiceProvider).requestAndGetToken();
-    final user = ref.read(authControllerProvider).valueOrNull;
-    if (token != null && user != null) {
-      await ref.read(userRepositoryProvider).updateFcmToken(uid: user.uid, token: token);
+    try {
+      final token = await ref.read(notificationServiceProvider).requestAndGetToken();
+      final user = ref.read(authControllerProvider).valueOrNull;
+      if (token != null && user != null) {
+        await ref.read(userRepositoryProvider).updateFcmToken(uid: user.uid, token: token);
+      }
+    } catch (_) {
+      // Push permissions are non-blocking for the core Nearo flow.
     }
   }
 
@@ -37,9 +42,19 @@ class _NearoAppState extends ConsumerState<NearoApp> {
       debugShowCheckedModeBanner: false,
       theme: NearoTheme.darkTheme,
       home: authState.when(
-        data: (user) => user == null ? const SignInScreen() : const HomeScreen(),
+        data: (user) {
+          if (user == null) return const PhoneAuthScreen();
+          final profile = ref.watch(currentUserProfileProvider);
+          return profile.when(
+            data: (item) => item == null || !item.isOnboarded
+                ? OnboardingScreen(appUser: user)
+                : const HomeScreen(),
+            loading: () => const _BootstrapScreen(),
+            error: (_, __) => OnboardingScreen(appUser: user),
+          );
+        },
         loading: () => const _BootstrapScreen(),
-        error: (_, __) => const SignInScreen(),
+        error: (_, __) => const PhoneAuthScreen(),
       ),
     );
   }

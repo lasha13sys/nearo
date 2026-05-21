@@ -1,6 +1,18 @@
+import 'dart:async';
+
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 
 import '../../domain/entities/app_user.dart';
+
+class PhoneVerificationSession {
+  final String verificationId;
+  final int? resendToken;
+
+  const PhoneVerificationSession({
+    required this.verificationId,
+    this.resendToken,
+  });
+}
 
 class AuthRepository {
   final bool firebaseReady;
@@ -14,37 +26,85 @@ class AuthRepository {
     return _auth.authStateChanges().map(_mapFirebaseUser);
   }
 
-  Future<AppUser> signIn({required String email, required String password}) async {
-    if (!firebaseReady || _auth == null) return AppUser.demo;
-    final credential = await _auth.signInWithEmailAndPassword(
-      email: email.trim(),
-      password: password,
+  Future<PhoneVerificationSession> requestSmsCode({
+    required String phoneNumber,
+    int? forceResendingToken,
+  }) async {
+    final normalizedPhone = phoneNumber.trim();
+    if (normalizedPhone.length < 8) {
+      throw firebase_auth.FirebaseAuthException(
+        code: 'invalid-phone-number',
+        message: 'Enter a valid phone number.',
+      );
+    }
+
+    if (!firebaseReady || _auth == null) {
+      return const PhoneVerificationSession(verificationId: 'demo-verification');
+    }
+
+    final completer = Completer<PhoneVerificationSession>();
+    await _auth.verifyPhoneNumber(
+      phoneNumber: normalizedPhone,
+      forceResendingToken: forceResendingToken,
+      timeout: const Duration(seconds: 60),
+      verificationCompleted: (credential) async {
+        try {
+          await _auth.signInWithCredential(credential);
+        } catch (_) {
+          // The OTP screen still handles manual code entry if auto verification fails.
+        }
+      },
+      verificationFailed: (error) {
+        if (!completer.isCompleted) completer.completeError(error);
+      },
+      codeSent: (verificationId, resendToken) {
+        if (!completer.isCompleted) {
+          completer.complete(
+            PhoneVerificationSession(
+              verificationId: verificationId,
+              resendToken: resendToken,
+            ),
+          );
+        }
+      },
+      codeAutoRetrievalTimeout: (verificationId) {
+        if (!completer.isCompleted) {
+          completer.complete(PhoneVerificationSession(verificationId: verificationId));
+        }
+      },
     );
-    final user = _mapFirebaseUser(credential.user);
-    if (user == null) throw firebase_auth.FirebaseAuthException(code: 'no-user');
-    return user;
+
+    return completer.future;
   }
 
-  Future<AppUser> signUp({
-    required String email,
-    required String password,
-    required String displayName,
+  Future<AppUser> verifySmsCode({
+    required String verificationId,
+    required String smsCode,
+    required String phoneNumber,
   }) async {
-    if (!firebaseReady || _auth == null) {
+    final cleanCode = smsCode.trim();
+    if (cleanCode.length < 4) {
+      throw firebase_auth.FirebaseAuthException(
+        code: 'invalid-verification-code',
+        message: 'Enter the SMS code.',
+      );
+    }
+
+    if (!firebaseReady || _auth == null || verificationId == 'demo-verification') {
       return AppUser(
-        uid: 'demo-user',
-        email: email.trim(),
-        displayName: displayName.trim().isEmpty ? 'Demo User' : displayName.trim(),
+        uid: phoneNumber.trim().isEmpty ? 'demo-user' : 'demo-${phoneNumber.trim().replaceAll(RegExp(r'[^0-9]'), '')}',
+        phoneNumber: phoneNumber.trim().isEmpty ? '+995555000000' : phoneNumber.trim(),
+        displayName: 'Nearo User',
         isDemo: true,
       );
     }
 
-    final credential = await _auth.createUserWithEmailAndPassword(
-      email: email.trim(),
-      password: password,
+    final credential = firebase_auth.PhoneAuthProvider.credential(
+      verificationId: verificationId,
+      smsCode: cleanCode,
     );
-    await credential.user?.updateDisplayName(displayName.trim());
-    final user = _mapFirebaseUser(credential.user);
+    final result = await _auth.signInWithCredential(credential);
+    final user = _mapFirebaseUser(result.user);
     if (user == null) throw firebase_auth.FirebaseAuthException(code: 'no-user');
     return user;
   }
@@ -56,10 +116,11 @@ class AuthRepository {
 
   AppUser? _mapFirebaseUser(firebase_auth.User? user) {
     if (user == null) return null;
+    final phone = user.phoneNumber ?? '';
     return AppUser(
       uid: user.uid,
-      email: user.email ?? '',
-      displayName: user.displayName ?? user.email?.split('@').first ?? 'Nearo User',
+      phoneNumber: phone,
+      displayName: user.displayName ?? (phone.isEmpty ? 'Nearo User' : phone),
     );
   }
 }

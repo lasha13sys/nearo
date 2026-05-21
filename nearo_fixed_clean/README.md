@@ -5,8 +5,8 @@ Nearo is a proximity-based Flutter/Firebase social nightlife app. This package i
 ## What is included
 
 - Clean Flutter app structure with Riverpod state management.
-- Email/password auth with a demo-mode fallback when Firebase credentials are not yet real.
-- Nearby users, venue discovery, signals, matches, profile visibility and basic chat-ready data layer.
+- Phone/SMS auth flow with a demo-mode fallback when Firebase credentials are not yet real.
+- Nearby users, Signal/Spark flow, match interaction hub, mutual-only contact reveal, guided chat prompts, profile visibility and Spots-ready venue discovery.
 - Firebase Firestore rules, indexes, Cloud Functions and Storage rules.
 - Android scaffold and web scaffold.
 - No required build_runner/code-generation step.
@@ -57,7 +57,7 @@ firebase deploy --only firestore:rules,firestore:indexes,storage:rules,functions
 
 Enable these in Firebase Console:
 
-- Authentication: Email/Password, optionally Google Sign-In.
+- Authentication: Phone provider for SMS verification.
 - Cloud Firestore.
 - Cloud Functions.
 - Cloud Storage.
@@ -67,6 +67,8 @@ Enable these in Firebase Console:
 ## Safety notes
 
 Nearo is a real-world social app. Before public launch, keep the included 18+ gate, reporting flow, security rules and server-side match creation. Add manual moderation workflows and abuse monitoring before App Store/Play Store release.
+
+Private phone/social data is stored under each user's private contact document and is only copied into a `contactReveals` document by Cloud Functions after the receiver approves a reveal request. Do not expose raw contact fields from public profile reads.
 
 ## Validation commands
 
