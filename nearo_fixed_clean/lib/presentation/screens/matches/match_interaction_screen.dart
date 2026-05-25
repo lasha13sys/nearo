@@ -3,10 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/providers/app_providers.dart';
 import '../../../core/theme/nearo_theme.dart';
+import '../../../data/repositories/contact_reveal_repository.dart';
 import '../../../domain/entities/contact_reveal.dart';
 import '../../../domain/entities/interaction_option.dart';
 import '../../../domain/entities/match.dart';
 import '../chat/conversation_screen.dart';
+import 'fun_game_screen.dart';
 
 class MatchInteractionScreen extends ConsumerWidget {
   final Match match;
@@ -56,9 +58,9 @@ class MatchInteractionScreen extends ConsumerWidget {
                 "It's a Match",
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                      fontWeight: FontWeight.w800,
-                      color: NearoTheme.text,
-                    ),
+                  fontWeight: FontWeight.w800,
+                  color: NearoTheme.text,
+                ),
               ),
               const SizedBox(height: 28),
               Center(
@@ -70,7 +72,11 @@ class MatchInteractionScreen extends ConsumerWidget {
                       children: [
                         const _GlowAvatar(label: 'You'),
                         const SizedBox(width: 52),
-                        _GlowAvatar(label: otherUserId.isEmpty ? 'Match' : otherUserId.substring(0, 1).toUpperCase()),
+                        _GlowAvatar(
+                          label: otherUserId.isEmpty
+                              ? 'Match'
+                              : otherUserId.substring(0, 1).toUpperCase(),
+                        ),
                       ],
                     ),
                     Container(
@@ -79,7 +85,12 @@ class MatchInteractionScreen extends ConsumerWidget {
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         color: NearoTheme.elevated,
-                        boxShadow: [BoxShadow(color: NearoTheme.neon.withValues(alpha: 0.65), blurRadius: 28)],
+                        boxShadow: [
+                          BoxShadow(
+                            color: NearoTheme.neon.withValues(alpha: 0.65),
+                            blurRadius: 28,
+                          ),
+                        ],
                       ),
                       child: const Icon(Icons.favorite, color: NearoTheme.neon),
                     ),
@@ -102,10 +113,8 @@ class MatchInteractionScreen extends ConsumerWidget {
                 error: (_, __) => const SizedBox.shrink(),
               ),
               reveals.when(
-                data: (items) => _RevealPanel(
-                  reveals: items,
-                  currentUserId: currentUserId,
-                ),
+                data: (items) =>
+                    _RevealPanel(reveals: items, currentUserId: currentUserId),
                 loading: () => const SizedBox.shrink(),
                 error: (_, __) => const SizedBox.shrink(),
               ),
@@ -122,7 +131,9 @@ class MatchInteractionScreen extends ConsumerWidget {
                       onPressed: otherUserId.isEmpty
                           ? null
                           : () async {
-                              await ref.read(userRepositoryProvider).blockUser(
+                              await ref
+                                  .read(userRepositoryProvider)
+                                  .blockUser(
                                     currentUserId: currentUserId,
                                     blockedUserId: otherUserId,
                                   );
@@ -138,12 +149,19 @@ class MatchInteractionScreen extends ConsumerWidget {
                       onPressed: otherUserId.isEmpty
                           ? null
                           : () async {
-                              await ref.read(reportServiceProvider).reportUser(
+                              await ref
+                                  .read(reportServiceProvider)
+                                  .reportUser(
                                     reporterId: currentUserId,
                                     reportedUserId: otherUserId,
                                     reason: 'safety_concern',
                                   );
-                              if (context.mounted) _showSnack(context, 'Report submitted for moderation.');
+                              if (context.mounted) {
+                                _showSnack(
+                                  context,
+                                  'Report submitted for moderation.',
+                                );
+                              }
                             },
                       icon: const Icon(Icons.flag_outlined),
                       label: const Text('Report'),
@@ -165,7 +183,9 @@ class MatchInteractionScreen extends ConsumerWidget {
     String otherUserId,
   ) async {
     final connectionId = match.connectionId ?? match.id;
-    await ref.read(signalRepositoryProvider).selectInteractionOption(
+    await ref
+        .read(signalRepositoryProvider)
+        .selectInteractionOption(
           connectionId: connectionId,
           optionId: option.id,
         );
@@ -179,7 +199,9 @@ class MatchInteractionScreen extends ConsumerWidget {
             builder: (_) => ConversationScreen(
               conversationId: match.conversationId ?? match.id,
               currentUserId: currentUserId,
-              title: option.type == InteractionOptionType.easyStart ? 'Easy Start' : 'Match chat',
+              title: option.type == InteractionOptionType.easyStart
+                  ? 'Easy Start'
+                  : 'Match chat',
               matchId: match.id,
               connectionId: connectionId,
               easyStart: option.type == InteractionOptionType.easyStart,
@@ -187,31 +209,43 @@ class MatchInteractionScreen extends ConsumerWidget {
           ),
         );
       case InteractionOptionType.leaveNumber:
-        await _requestReveal(ref, otherUserId, ContactRevealType.phone);
-        if (context.mounted) _showSnack(context, 'Phone reveal requested. It unlocks only after approval.');
+        final result = await _requestReveal(
+          ref,
+          otherUserId,
+          ContactRevealType.phone,
+        );
+        if (context.mounted) _showSnack(context, result.message);
       case InteractionOptionType.leaveSocial:
-        await _requestReveal(ref, otherUserId, ContactRevealType.instagram);
-        if (context.mounted) _showSnack(context, 'Social reveal requested. It unlocks only after approval.');
+        if (!context.mounted) return;
+        final type = await _pickSocialType(context);
+        if (type == null) return;
+        final result = await _requestReveal(ref, otherUserId, type);
+        if (context.mounted) _showSnack(context, result.message);
       case InteractionOptionType.meetNow:
-        if (context.mounted) _showSnack(context, 'Meet Now intent saved. No exact location is shared.');
-      case InteractionOptionType.funGame:
         if (context.mounted) {
-          showDialog<void>(
-            context: context,
-            builder: (_) => AlertDialog(
-              title: const Text('Fun Game'),
-              content: const Text('Quick pick: Mountains or sea? Jazz or techno? This placeholder is connected to the match state.'),
-              actions: [
-                TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Close')),
-              ],
-            ),
+          _showSnack(
+            context,
+            'Meet Now intent saved. No exact location is shared.',
           );
         }
+      case InteractionOptionType.funGame:
+        if (!context.mounted) return;
+        Navigator.of(context).push(
+          MaterialPageRoute<void>(
+            builder: (_) => FunGameScreen(connectionId: connectionId),
+          ),
+        );
     }
   }
 
-  Future<void> _requestReveal(WidgetRef ref, String otherUserId, ContactRevealType type) {
-    return ref.read(contactRevealRepositoryProvider).requestReveal(
+  Future<ContactRevealRequestResult> _requestReveal(
+    WidgetRef ref,
+    String otherUserId,
+    ContactRevealType type,
+  ) {
+    return ref
+        .read(contactRevealRepositoryProvider)
+        .requestReveal(
           matchId: match.id,
           requesterId: currentUserId,
           receiverId: otherUserId,
@@ -220,7 +254,42 @@ class MatchInteractionScreen extends ConsumerWidget {
   }
 
   void _showSnack(BuildContext context, String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<ContactRevealType?> _pickSocialType(BuildContext context) {
+    return showModalBottomSheet<ContactRevealType>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const ListTile(title: Text('Choose social to reveal')),
+            ListTile(
+              leading: const Icon(Icons.camera_alt_outlined),
+              title: const Text('Instagram'),
+              onTap: () =>
+                  Navigator.of(context).pop(ContactRevealType.instagram),
+            ),
+            ListTile(
+              leading: const Icon(Icons.send_outlined),
+              title: const Text('Telegram'),
+              onTap: () =>
+                  Navigator.of(context).pop(ContactRevealType.telegram),
+            ),
+            ListTile(
+              leading: const Icon(Icons.chat_outlined),
+              title: const Text('WhatsApp'),
+              onTap: () =>
+                  Navigator.of(context).pop(ContactRevealType.whatsapp),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -228,10 +297,7 @@ class _RevealPanel extends ConsumerWidget {
   final List<ContactReveal> reveals;
   final String currentUserId;
 
-  const _RevealPanel({
-    required this.reveals,
-    required this.currentUserId,
-  });
+  const _RevealPanel({required this.reveals, required this.currentUserId});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -248,9 +314,14 @@ class _RevealPanel extends ConsumerWidget {
               decoration: BoxDecoration(
                 color: NearoTheme.surface.withValues(alpha: 0.78),
                 borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: NearoTheme.gold.withValues(alpha: 0.2)),
+                border: Border.all(
+                  color: NearoTheme.gold.withValues(alpha: 0.2),
+                ),
               ),
-              child: _RevealContent(reveal: reveal, currentUserId: currentUserId),
+              child: _RevealContent(
+                reveal: reveal,
+                currentUserId: currentUserId,
+              ),
             ),
         ],
       ),
@@ -262,10 +333,7 @@ class _RevealContent extends ConsumerWidget {
   final ContactReveal reveal;
   final String currentUserId;
 
-  const _RevealContent({
-    required this.reveal,
-    required this.currentUserId,
-  });
+  const _RevealContent({required this.reveal, required this.currentUserId});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -273,19 +341,27 @@ class _RevealContent extends ConsumerWidget {
     if (reveal.canShowTo(currentUserId)) {
       return Text(
         '${reveal.contactType.name}: ${reveal.revealedValue}',
-        style: const TextStyle(fontWeight: FontWeight.w800, color: NearoTheme.gold),
+        style: const TextStyle(
+          fontWeight: FontWeight.w800,
+          color: NearoTheme.gold,
+        ),
       );
     }
     if (reveal.status == ContactRevealStatus.requested && isReceiver) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('Approve ${reveal.contactType.name} reveal?', style: const TextStyle(fontWeight: FontWeight.w800)),
+          Text(
+            'Approve ${reveal.contactType.name} reveal?',
+            style: const TextStyle(fontWeight: FontWeight.w800),
+          ),
           const SizedBox(height: 8),
           Row(
             children: [
               TextButton(
-                onPressed: () => ref.read(contactRevealRepositoryProvider).respond(
+                onPressed: () => ref
+                    .read(contactRevealRepositoryProvider)
+                    .respond(
                       revealId: reveal.id,
                       status: ContactRevealStatus.declined,
                     ),
@@ -293,7 +369,9 @@ class _RevealContent extends ConsumerWidget {
               ),
               const SizedBox(width: 8),
               ElevatedButton(
-                onPressed: () => ref.read(contactRevealRepositoryProvider).respond(
+                onPressed: () => ref
+                    .read(contactRevealRepositoryProvider)
+                    .respond(
                       revealId: reveal.id,
                       status: ContactRevealStatus.approved,
                     ),
@@ -324,10 +402,18 @@ class _GlowAvatar extends StatelessWidget {
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         border: Border.all(color: NearoTheme.neon, width: 2),
-        boxShadow: [BoxShadow(color: NearoTheme.neon.withValues(alpha: 0.35), blurRadius: 24)],
+        boxShadow: [
+          BoxShadow(
+            color: NearoTheme.neon.withValues(alpha: 0.35),
+            blurRadius: 24,
+          ),
+        ],
       ),
       child: Center(
-        child: Text(label, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 22)),
+        child: Text(
+          label,
+          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 22),
+        ),
       ),
     );
   }
@@ -353,7 +439,12 @@ class _OptionTile extends StatelessWidget {
             borderRadius: BorderRadius.circular(28),
             border: Border.all(color: NearoTheme.neon.withValues(alpha: 0.35)),
             boxShadow: option.type == InteractionOptionType.meetNow
-                ? [BoxShadow(color: NearoTheme.danger.withValues(alpha: 0.25), blurRadius: 24)]
+                ? [
+                    BoxShadow(
+                      color: NearoTheme.danger.withValues(alpha: 0.25),
+                      blurRadius: 24,
+                    ),
+                  ]
                 : null,
           ),
           child: Row(
@@ -363,7 +454,9 @@ class _OptionTile extends StatelessWidget {
               Expanded(
                 child: Text(
                   option.title,
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
                 ),
               ),
               const Icon(Icons.chevron_right, color: NearoTheme.mutedText),

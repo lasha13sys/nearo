@@ -9,13 +9,19 @@ class UserRepository {
   final FirebaseFirestore? _firestore;
 
   UserRepository({required this.firebaseReady})
-      : _firestore = firebaseReady ? FirebaseFirestore.instance : null;
+    : _firestore = firebaseReady ? FirebaseFirestore.instance : null;
 
   Future<NearoUser?> getUser(String uid) async {
-    if (!firebaseReady || _firestore == null || uid == 'demo-user' || uid.startsWith('demo-')) {
+    if (!firebaseReady ||
+        _firestore == null ||
+        uid == 'demo-user' ||
+        uid.startsWith('demo-')) {
       return NearoUser.demo(uid: uid);
     }
-    final doc = await _firestore.collection(FirebaseCollections.users).doc(uid).get();
+    final doc = await _firestore
+        .collection(FirebaseCollections.users)
+        .doc(uid)
+        .get();
     final data = doc.data();
     return data == null ? null : NearoUser.fromMap(data, doc.id);
   }
@@ -31,7 +37,9 @@ class UserRepository {
       );
     }
 
-    final ref = _firestore.collection(FirebaseCollections.users).doc(appUser.uid);
+    final ref = _firestore
+        .collection(FirebaseCollections.users)
+        .doc(appUser.uid);
     final snapshot = await ref.get();
     if (snapshot.exists && snapshot.data() != null) {
       return NearoUser.fromMap(snapshot.data()!, snapshot.id);
@@ -53,7 +61,6 @@ class UserRepository {
       'phoneNumber': '',
       'socials': <String, dynamic>{},
       'onboarded': false,
-      'blockedUsers': <String>[],
       'isBanned': false,
     });
     await _writePrivateContact(user);
@@ -85,32 +92,49 @@ class UserRepository {
       updatedAt: now,
     );
 
-    if (!firebaseReady || _firestore == null || uid == 'demo-user' || uid.startsWith('demo-')) return;
+    if (!firebaseReady ||
+        _firestore == null ||
+        uid == 'demo-user' ||
+        uid.startsWith('demo-')) {
+      return;
+    }
 
     await _firestore.collection(FirebaseCollections.users).doc(uid).set({
-      ...user.toPublicMap(),
+      'nickname': user.nickname,
+      'photoUrl': user.photoUrl,
+      'age': user.age,
+      'bio': user.bio,
+      'mood': user.mood,
+      'visible': user.visible,
+      'wifiHash': user.wifiHash,
+      'isVerified': user.isVerified,
+      'updatedAt': FieldValue.serverTimestamp(),
       'phoneNumber': '',
       'socials': <String, dynamic>{},
       'onboarded': true,
-      'blockedUsers': <String>[],
+      'blockedUsers': FieldValue.delete(),
+      'fcmToken': FieldValue.delete(),
       'isBanned': false,
-      'signalsSent': 0,
-      'matchesCount': 0,
     }, SetOptions(merge: true));
     await _writePrivateContact(user);
   }
 
   Stream<NearoUser?> watchUser(String uid) {
-    if (!firebaseReady || _firestore == null || uid == 'demo-user' || uid.startsWith('demo-')) {
+    if (!firebaseReady ||
+        _firestore == null ||
+        uid == 'demo-user' ||
+        uid.startsWith('demo-')) {
       return Stream<NearoUser?>.value(NearoUser.demo(uid: uid));
     }
 
-    return _firestore.collection(FirebaseCollections.users).doc(uid).snapshots().map(
-      (doc) {
-        final data = doc.data();
-        return data == null ? null : NearoUser.fromMap(data, doc.id);
-      },
-    );
+    return _firestore
+        .collection(FirebaseCollections.users)
+        .doc(uid)
+        .snapshots()
+        .map((doc) {
+          final data = doc.data();
+          return data == null ? null : NearoUser.fromMap(data, doc.id);
+        });
   }
 
   Stream<List<NearoUser>> watchNearbyUsers({
@@ -134,66 +158,129 @@ class UserRepository {
 
     return query.snapshots().map(
       (snapshot) => snapshot.docs
-          .where((doc) => doc.id != currentUserId && !blockedUsers.contains(doc.id))
+          .where(
+            (doc) => doc.id != currentUserId && !blockedUsers.contains(doc.id),
+          )
           .map((doc) => NearoUser.fromMap(doc.data(), doc.id))
           .where((user) => !user.blockedUsers.contains(currentUserId))
           .toList(),
     );
   }
 
-  Future<void> updateVisibility({required String uid, required bool visible}) async {
-    if (!firebaseReady || _firestore == null || uid == 'demo-user' || uid.startsWith('demo-')) return;
+  Future<void> updateVisibility({
+    required String uid,
+    required bool visible,
+  }) async {
+    if (!firebaseReady ||
+        _firestore == null ||
+        uid == 'demo-user' ||
+        uid.startsWith('demo-')) {
+      return;
+    }
     await _firestore.collection(FirebaseCollections.users).doc(uid).update({
       'visible': visible,
+      'blockedUsers': FieldValue.delete(),
+      'fcmToken': FieldValue.delete(),
       'updatedAt': FieldValue.serverTimestamp(),
     });
   }
 
-  Future<void> updateFcmToken({required String uid, required String? token}) async {
-    if (!firebaseReady || _firestore == null || uid == 'demo-user' || uid.startsWith('demo-')) return;
-    await _firestore.collection(FirebaseCollections.users).doc(uid).update({
+  Future<void> updateFcmToken({
+    required String uid,
+    required String? token,
+  }) async {
+    if (!firebaseReady ||
+        _firestore == null ||
+        uid == 'demo-user' ||
+        uid.startsWith('demo-')) {
+      return;
+    }
+    final userRef = _firestore.collection(FirebaseCollections.users).doc(uid);
+    final notificationRef = userRef.collection('private').doc('notification');
+    final batch = _firestore.batch();
+    batch.set(notificationRef, {
       'fcmToken': token,
       'updatedAt': FieldValue.serverTimestamp(),
-    });
-  }
-
-  Future<void> updateWifiHash({required String uid, required String? wifiHash}) async {
-    if (!firebaseReady || _firestore == null || uid == 'demo-user' || uid.startsWith('demo-')) return;
-    await _firestore.collection(FirebaseCollections.users).doc(uid).update({
-      'wifiHash': wifiHash,
-      'updatedAt': FieldValue.serverTimestamp(),
-    });
-  }
-
-  Future<void> blockUser({required String currentUserId, required String blockedUserId}) async {
-    if (!firebaseReady || _firestore == null || currentUserId.startsWith('demo-')) return;
-    final batch = _firestore.batch();
-    final userRef = _firestore.collection(FirebaseCollections.users).doc(currentUserId);
-    final blockRef = _firestore.collection(FirebaseCollections.blocks).doc('${currentUserId}_$blockedUserId');
+    }, SetOptions(merge: true));
     batch.update(userRef, {
-      'blockedUsers': FieldValue.arrayUnion([blockedUserId]),
+      'fcmToken': FieldValue.delete(),
+      'blockedUsers': FieldValue.delete(),
       'updatedAt': FieldValue.serverTimestamp(),
-    });
-    batch.set(blockRef, {
-      'blockerId': currentUserId,
-      'blockedUserId': blockedUserId,
-      'createdAt': FieldValue.serverTimestamp(),
     });
     await batch.commit();
   }
 
+  Future<void> updateWifiHash({
+    required String uid,
+    required String? wifiHash,
+  }) async {
+    if (!firebaseReady ||
+        _firestore == null ||
+        uid == 'demo-user' ||
+        uid.startsWith('demo-')) {
+      return;
+    }
+    await _firestore.collection(FirebaseCollections.users).doc(uid).update({
+      'wifiHash': wifiHash,
+      'blockedUsers': FieldValue.delete(),
+      'fcmToken': FieldValue.delete(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Future<void> blockUser({
+    required String currentUserId,
+    required String blockedUserId,
+  }) async {
+    if (!firebaseReady ||
+        _firestore == null ||
+        currentUserId.startsWith('demo-')) {
+      return;
+    }
+    final blockRef = _firestore
+        .collection(FirebaseCollections.blocks)
+        .doc('${currentUserId}_$blockedUserId');
+    await blockRef.set({
+      'blockerId': currentUserId,
+      'blockedUserId': blockedUserId,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  Stream<List<String>> watchBlockedUserIds(String currentUserId) {
+    if (!firebaseReady ||
+        _firestore == null ||
+        currentUserId.startsWith('demo-')) {
+      return Stream<List<String>>.value(const []);
+    }
+    return _firestore
+        .collection(FirebaseCollections.blocks)
+        .where('blockerId', isEqualTo: currentUserId)
+        .snapshots()
+        .map(
+          (snapshot) => snapshot.docs
+              .map((doc) => doc.data()['blockedUserId'] as String? ?? '')
+              .where((id) => id.isNotEmpty)
+              .toList(),
+        );
+  }
+
   Future<void> _writePrivateContact(NearoUser user) async {
-    if (_firestore == null || user.uid == 'demo-user' || user.uid.startsWith('demo-')) return;
+    if (_firestore == null ||
+        user.uid == 'demo-user' ||
+        user.uid.startsWith('demo-')) {
+      return;
+    }
     await _firestore
         .collection(FirebaseCollections.users)
         .doc(user.uid)
         .collection('private')
         .doc('contact')
         .set({
-      'phoneNumber': user.phoneNumber,
-      'socials': user.socials.toMap(),
-      'updatedAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+          'phoneNumber': user.phoneNumber,
+          'socials': user.socials.toMap(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
   }
 
   List<NearoUser> _demoNearbyUsers() {
@@ -206,7 +293,8 @@ class UserRepository {
         age: 23,
         bio: 'Live music, espresso, and deep talks.',
         mood: 'Good vibes only',
-        photoUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330',
+        photoUrl:
+            'https://images.unsplash.com/photo-1494790108377-be9c29b29330',
         wifiHash: 'demo-venue-hash',
         socials: const UserSocials(instagram: 'lunaaa'),
         createdAt: now,
@@ -219,7 +307,8 @@ class UserRepository {
         age: 26,
         bio: 'Jazz bar, wine, spontaneous walks.',
         mood: 'Open to Meet',
-        photoUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e',
+        photoUrl:
+            'https://images.unsplash.com/photo-1500648767791-00dcc994a43e',
         wifiHash: 'demo-venue-hash',
         socials: const UserSocials(telegram: 'nika'),
         createdAt: now,
@@ -232,7 +321,8 @@ class UserRepository {
         age: 24,
         bio: 'Coffee, books, calm conversations.',
         mood: 'Easy Start',
-        photoUrl: 'https://images.unsplash.com/photo-1517841905240-472988babdf9',
+        photoUrl:
+            'https://images.unsplash.com/photo-1517841905240-472988babdf9',
         wifiHash: 'demo-venue-hash',
         createdAt: now,
         updatedAt: now,

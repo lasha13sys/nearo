@@ -8,6 +8,7 @@
   "main": "index.js",
   "scripts": {
     "lint": "eslint .",
+    "smoke:emulators": "node emulator-smoke.js",
     "deploy": "firebase deploy --only functions"
   },
   "dependencies": {

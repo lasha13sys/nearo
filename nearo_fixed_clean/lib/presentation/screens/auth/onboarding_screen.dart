@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../core/providers/app_providers.dart';
 import '../../../core/theme/nearo_theme.dart';
@@ -20,12 +21,14 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nicknameController = TextEditingController();
   final _ageController = TextEditingController(text: '18');
-  final _photoController = TextEditingController(text: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330');
+  final _photoController = TextEditingController();
   final _bioController = TextEditingController();
   final _moodController = TextEditingController(text: 'Open to connect');
   final _instagramController = TextEditingController();
   final _telegramController = TextEditingController();
   final _whatsappController = TextEditingController();
+  final _imagePicker = ImagePicker();
+  XFile? _selectedPhoto;
   var _acceptedSafety = false;
   var _saving = false;
 
@@ -75,10 +78,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 },
               ),
               const SizedBox(height: 12),
-              TextFormField(
-                controller: _photoController,
-                decoration: const InputDecoration(labelText: 'Profile photo URL'),
-                validator: (value) => value == null || !value.startsWith('http') ? 'Profile photo is required.' : null,
+              _ProfilePhotoPicker(
+                selectedPhoto: _selectedPhoto,
+                photoController: _photoController,
+                onPickPhoto: _pickPhoto,
               ),
               const SizedBox(height: 12),
               TextFormField(controller: _moodController, decoration: const InputDecoration(labelText: 'Mood')),
@@ -117,20 +120,121 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
   Future<void> _save() async {
     if (!_acceptedSafety || !_formKey.currentState!.validate()) return;
+    if (_selectedPhoto == null && !_photoController.text.trim().startsWith('http')) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Profile photo is required.')),
+      );
+      return;
+    }
     setState(() => _saving = true);
-    await ref.read(authControllerProvider.notifier).completeOnboarding(
-          appUser: widget.appUser,
-          nickname: _nicknameController.text,
-          age: int.parse(_ageController.text),
-          photoUrl: _photoController.text,
-          bio: _bioController.text,
-          mood: _moodController.text,
-          socials: UserSocials(
-            instagram: _instagramController.text,
-            telegram: _telegramController.text,
-            whatsapp: _whatsappController.text,
-          ),
+    try {
+      var photoUrl = _photoController.text.trim();
+      if (_selectedPhoto != null) {
+        photoUrl = await ref.read(profilePhotoRepositoryProvider).uploadProfilePhoto(
+              uid: widget.appUser.uid,
+              image: _selectedPhoto!,
+            );
+      }
+      await ref.read(authControllerProvider.notifier).completeOnboarding(
+            appUser: widget.appUser,
+            nickname: _nicknameController.text,
+            age: int.parse(_ageController.text),
+            photoUrl: photoUrl,
+            bio: _bioController.text,
+            mood: _moodController.text,
+            socials: UserSocials(
+              instagram: _instagramController.text,
+              telegram: _telegramController.text,
+              whatsapp: _whatsappController.text,
+            ),
+          );
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not save profile. Please try again.')),
         );
-    if (mounted) setState(() => _saving = false);
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _pickPhoto() async {
+    final photo = await _imagePicker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 1200,
+      imageQuality: 82,
+    );
+    if (photo == null) return;
+    setState(() {
+      _selectedPhoto = photo;
+      _photoController.clear();
+    });
+  }
+}
+
+class _ProfilePhotoPicker extends StatelessWidget {
+  final XFile? selectedPhoto;
+  final TextEditingController photoController;
+  final VoidCallback onPickPhoto;
+
+  const _ProfilePhotoPicker({
+    required this.selectedPhoto,
+    required this.photoController,
+    required this.onPickPhoto,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final hasUrl = photoController.text.trim().startsWith('http');
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.14)),
+        color: Colors.white.withValues(alpha: 0.05),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Profile photo', style: TextStyle(fontWeight: FontWeight.w800)),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              CircleAvatar(
+                radius: 34,
+                backgroundColor: NearoTheme.surface,
+                backgroundImage: hasUrl ? NetworkImage(photoController.text.trim()) : null,
+                child: selectedPhoto == null && !hasUrl ? const Icon(Icons.person_add_alt_1) : null,
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      selectedPhoto?.name ?? (hasUrl ? 'Photo URL added' : 'Add a clear profile photo'),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 8),
+                    FilledButton.icon(
+                      onPressed: onPickPhoto,
+                      icon: const Icon(Icons.photo_library_outlined),
+                      label: const Text('Choose photo'),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          TextFormField(
+            controller: photoController,
+            decoration: const InputDecoration(labelText: 'Or paste photo URL'),
+          ),
+        ],
+      ),
+    );
   }
 }

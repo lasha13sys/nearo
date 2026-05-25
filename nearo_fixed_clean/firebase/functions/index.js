@@ -1,9 +1,10 @@
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
+const { FieldValue, Timestamp } = require('firebase-admin/firestore');
 
 admin.initializeApp();
 const db = admin.firestore();
-const fieldValue = admin.firestore.FieldValue;
+const fieldValue = FieldValue;
 
 exports.detectMutualSignal = functions.firestore
   .document('signals/{signalId}')
@@ -23,6 +24,11 @@ exports.detectMutualSignal = functions.firestore
       await snapshot.ref.update({ status: 'blocked', updatedAt: fieldValue.serverTimestamp() });
       return null;
     }
+
+    await db.collection('users').doc(senderId).update({
+      signalsSent: fieldValue.increment(1),
+      lastSignalAt: fieldValue.serverTimestamp(),
+    });
 
     const reciprocal = await db
       .collection('signals')
@@ -113,7 +119,7 @@ exports.copyApprovedContactReveal = functions.firestore
 exports.cleanupExpiredSignalsAndReveals = functions.pubsub
   .schedule('every 15 minutes')
   .onRun(async () => {
-    const now = admin.firestore.Timestamp.now();
+  const now = Timestamp.now();
     const [expiredSignals, expiredReveals] = await Promise.all([
       db.collection('signals').where('status', '==', 'pending').where('expiresAt', '<=', now).limit(500).get(),
       db.collection('contactReveals').where('status', '==', 'requested').where('expiresAt', '<=', now).limit(500).get(),
@@ -147,7 +153,7 @@ async function createMatchBundle({
   const matchRef = db.collection('matches').doc(matchId);
   const connectionRef = db.collection('connections').doc(matchId);
   const conversationRef = db.collection('conversations').doc(matchId);
-  const expiresAt = admin.firestore.Timestamp.fromDate(new Date(Date.now() + 2 * 60 * 60 * 1000));
+  const expiresAt = Timestamp.fromDate(new Date(Date.now() + 2 * 60 * 60 * 1000));
 
   await db.runTransaction(async (transaction) => {
     const matchSnapshot = await transaction.get(matchRef);
@@ -221,18 +227,18 @@ async function createMatchBundle({
 }
 
 async function interactionAllowed(userA, userB) {
-  const [a, b] = await Promise.all([
+  const [a, b, aBlockedB, bBlockedA] = await Promise.all([
     db.collection('users').doc(userA).get(),
     db.collection('users').doc(userB).get(),
+    db.collection('blocks').doc(`${userA}_${userB}`).get(),
+    db.collection('blocks').doc(`${userB}_${userA}`).get(),
   ]);
   if (!a.exists || !b.exists) return false;
   const aData = a.data();
   const bData = b.data();
   if (aData.isBanned === true || bData.isBanned === true) return false;
   if (bData.visible !== true) return false;
-  const aBlocks = aData.blockedUsers || [];
-  const bBlocks = bData.blockedUsers || [];
-  return !aBlocks.includes(userB) && !bBlocks.includes(userA);
+  return !aBlockedB.exists && !bBlockedA.exists;
 }
 
 function isExpired(data) {
@@ -248,8 +254,13 @@ function contactValue(data, type) {
 }
 
 async function sendMatchNotification(userId, matchedUserId, matchId) {
-  const userDoc = await db.collection('users').doc(userId).get();
-  const token = userDoc.data()?.fcmToken;
+  const notificationDoc = await db
+    .collection('users')
+    .doc(userId)
+    .collection('private')
+    .doc('notification')
+    .get();
+  const token = notificationDoc.data()?.fcmToken;
   if (!token) return;
 
   const matchedDoc = await db.collection('users').doc(matchedUserId).get();

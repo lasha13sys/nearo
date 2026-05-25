@@ -22,8 +22,16 @@ service cloud.firestore {
         && request.auth.uid in get(/databases/$(database)/documents/matches/$(matchId)).data.userIds;
     }
 
+    function requestedMatchParticipant(matchId, uid) {
+      return uid in get(/databases/$(database)/documents/matches/$(matchId)).data.userIds;
+    }
+
     function conversationParticipants(convId) {
       return get(/databases/$(database)/documents/conversations/$(convId)).data.userIds;
+    }
+
+    function immutableSignalFields() {
+      return ['senderId', 'receiverId', 'createdAt', 'expiresAt', 'cooldownUntil', 'venueId', 'venueWifiHash'];
     }
 
     match /users/{uid} {
@@ -33,10 +41,12 @@ service cloud.firestore {
         && request.resource.data.isBanned == false
         && request.resource.data.visible is bool
         && request.resource.data.phoneNumber == ''
-        && request.resource.data.socials == {};
+        && request.resource.data.socials == {}
+        && !request.resource.data.keys().hasAny(['blockedUsers', 'fcmToken']);
       allow update: if isSelf(uid)
         && request.resource.data.phoneNumber == ''
         && request.resource.data.socials == {}
+        && !request.resource.data.keys().hasAny(['blockedUsers', 'fcmToken'])
         && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
           'isBanned', 'isVerified', 'matchesCount', 'signalsSent', 'createdAt'
         ]);
@@ -63,7 +73,17 @@ service cloud.firestore {
         && resource.data.status == 'pending'
         && request.resource.data.senderId == resource.data.senderId
         && request.resource.data.receiverId == resource.data.receiverId
-        && request.resource.data.status in ['accepted', 'declined'];
+        && request.resource.data.status in ['accepted', 'declined']
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(immutableSignalFields());
+
+      allow update: if signedIn()
+        && request.auth.uid == resource.data.senderId
+        && resource.data.status == 'pending'
+        && resource.data.expiresAt <= request.time
+        && request.resource.data.senderId == resource.data.senderId
+        && request.resource.data.receiverId == resource.data.receiverId
+        && request.resource.data.status == 'expired'
+        && !request.resource.data.diff(resource.data).affectedKeys().hasAny(immutableSignalFields());
 
       allow delete: if false;
     }
@@ -94,7 +114,12 @@ service cloud.firestore {
       allow create: if signedIn()
         && request.auth.uid == request.resource.data.requesterId
         && matchParticipant(request.resource.data.matchId)
+        && requestedMatchParticipant(request.resource.data.matchId, request.resource.data.receiverId)
+        && request.resource.data.requesterId != request.resource.data.receiverId
+        && request.resource.data.contactType in ['phone', 'instagram', 'telegram', 'whatsapp']
         && request.resource.data.status == 'requested'
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.expiresAt is timestamp
         && request.resource.data.revealedValue == null;
       allow update: if signedIn()
         && request.auth.uid == resource.data.receiverId
@@ -145,9 +170,12 @@ service cloud.firestore {
     }
 
     match /blocks/{blockId} {
-      allow read: if signedIn()
-        && (request.auth.uid == resource.data.blockerId || request.auth.uid == resource.data.blockedUserId);
-      allow create: if signedIn() && request.resource.data.blockerId == request.auth.uid;
+      allow read: if signedIn() && request.auth.uid == resource.data.blockerId;
+      allow create: if signedIn()
+        && blockId == request.auth.uid + '_' + request.resource.data.blockedUserId
+        && request.resource.data.blockerId == request.auth.uid
+        && request.resource.data.blockedUserId is string
+        && request.resource.data.blockedUserId != request.auth.uid;
       allow update, delete: if false;
     }
 

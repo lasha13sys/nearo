@@ -18,6 +18,16 @@ class AppConfig {
     defaultValue: false,
   );
 
+  static const bool useFirebaseEmulators = bool.fromEnvironment(
+    'USE_FIREBASE_EMULATORS',
+    defaultValue: false,
+  );
+
+  static const String firebaseEmulatorHost = String.fromEnvironment(
+    'FIREBASE_EMULATOR_HOST',
+    defaultValue: 'localhost',
+  );
+
   static const int maxSignalsPerHour = int.fromEnvironment(
     'MAX_SIGNALS_PER_HOUR',
     defaultValue: 10,

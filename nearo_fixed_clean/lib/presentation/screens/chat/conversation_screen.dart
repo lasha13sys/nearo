@@ -30,6 +30,7 @@ class ConversationScreen extends ConsumerStatefulWidget {
 
 class _ConversationScreenState extends ConsumerState<ConversationScreen> {
   final _controller = TextEditingController();
+  var _sending = false;
 
   @override
   void dispose() {
@@ -39,10 +40,14 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final messages = ref.watch(chatRepositoryProvider).watchMessages(widget.conversationId);
+    final messages = ref
+        .watch(chatRepositoryProvider)
+        .watchMessages(widget.conversationId);
     final conversation = ref.watch(conversationProvider(widget.conversationId));
     final icebreakers = ref.watch(icebreakersProvider);
-    final connection = widget.connectionId == null ? null : ref.watch(connectionProvider(widget.connectionId!));
+    final connection = widget.connectionId == null
+        ? null
+        : ref.watch(connectionProvider(widget.connectionId!));
 
     return Scaffold(
       body: Container(
@@ -69,23 +74,41 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                         children: [
                           Text(
                             'Nearo',
-                            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            style: Theme.of(context).textTheme.titleLarge
+                                ?.copyWith(
                                   color: NearoTheme.neon,
                                   fontWeight: FontWeight.w800,
                                 ),
                           ),
                           conversation.when(
                             data: (item) => Text(
-                              item?.venueName == null ? widget.title : 'Matched at ${item!.venueName}',
-                              style: const TextStyle(color: NearoTheme.mutedText),
+                              item?.venueName == null
+                                  ? widget.title
+                                  : 'Matched at ${item!.venueName}',
+                              style: const TextStyle(
+                                color: NearoTheme.mutedText,
+                              ),
                             ),
-                            loading: () => Text(widget.title, style: const TextStyle(color: NearoTheme.mutedText)),
-                            error: (_, __) => Text(widget.title, style: const TextStyle(color: NearoTheme.mutedText)),
+                            loading: () => Text(
+                              widget.title,
+                              style: const TextStyle(
+                                color: NearoTheme.mutedText,
+                              ),
+                            ),
+                            error: (_, __) => Text(
+                              widget.title,
+                              style: const TextStyle(
+                                color: NearoTheme.mutedText,
+                              ),
+                            ),
                           ),
                         ],
                       ),
                     ),
-                    IconButton.filledTonal(onPressed: () {}, icon: const Icon(Icons.more_horiz)),
+                    IconButton.filledTonal(
+                      onPressed: () {},
+                      icon: const Icon(Icons.more_horiz),
+                    ),
                   ],
                 ),
               ),
@@ -118,18 +141,32 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                         final message = items[index];
                         final isMine = message.senderId == widget.currentUserId;
                         return Align(
-                          alignment: isMine ? Alignment.centerRight : Alignment.centerLeft,
+                          alignment: isMine
+                              ? Alignment.centerRight
+                              : Alignment.centerLeft,
                           child: Container(
                             constraints: const BoxConstraints(maxWidth: 320),
                             margin: const EdgeInsets.only(bottom: 10),
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 12,
+                            ),
                             decoration: BoxDecoration(
                               gradient: isMine
-                                  ? const LinearGradient(colors: [Color(0xFF8A35E8), Color(0xFF40205F)])
+                                  ? const LinearGradient(
+                                      colors: [
+                                        Color(0xFF8A35E8),
+                                        Color(0xFF40205F),
+                                      ],
+                                    )
                                   : null,
-                              color: isMine ? null : NearoTheme.elevated.withValues(alpha: 0.88),
+                              color: isMine
+                                  ? null
+                                  : NearoTheme.elevated.withValues(alpha: 0.88),
                               borderRadius: BorderRadius.circular(22),
-                              border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+                              border: Border.all(
+                                color: Colors.white.withValues(alpha: 0.06),
+                              ),
                             ),
                             child: Text(message.text),
                           ),
@@ -153,18 +190,30 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
                   child: Row(
                     children: [
-                      IconButton.filledTonal(onPressed: () {}, icon: const Icon(Icons.add)),
+                      IconButton.filledTonal(
+                        onPressed: () {},
+                        icon: const Icon(Icons.add),
+                      ),
                       const SizedBox(width: 10),
                       Expanded(
                         child: TextField(
                           controller: _controller,
-                          decoration: const InputDecoration(hintText: 'Type a message...'),
+                          decoration: const InputDecoration(
+                            hintText: 'Type a message...',
+                          ),
                         ),
                       ),
                       const SizedBox(width: 10),
                       IconButton.filled(
-                        onPressed: _send,
-                        icon: const Icon(Icons.send),
+                        onPressed: _sending ? null : _send,
+                        icon: _sending
+                            ? const SizedBox.square(
+                                dimension: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.send),
                       ),
                     ],
                   ),
@@ -184,12 +233,26 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
     await _sendText(text);
   }
 
-  Future<void> _sendText(String text) {
-    return ref.read(chatRepositoryProvider).sendMessage(
-          conversationId: widget.conversationId,
-          senderId: widget.currentUserId,
-          text: text,
+  Future<void> _sendText(String text) async {
+    if (_sending) return;
+    setState(() => _sending = true);
+    try {
+      await ref
+          .read(chatRepositoryProvider)
+          .sendMessage(
+            conversationId: widget.conversationId,
+            senderId: widget.currentUserId,
+            text: text,
+          );
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not send message.')),
         );
+      }
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
   }
 }
 
@@ -208,7 +271,9 @@ class _IcebreakerStrip extends StatelessWidget {
   Widget build(BuildContext context) {
     final visibleItems = easyStart
         ? items
-        : items.where((item) => item.category != IcebreakerCategory.easyStart).toList();
+        : items
+              .where((item) => item.category != IcebreakerCategory.easyStart)
+              .toList();
     return SizedBox(
       height: 58,
       child: ListView.separated(

@@ -53,6 +53,23 @@ Deploy backend configuration:
 firebase deploy --only firestore:rules,firestore:indexes,storage:rules,functions
 ```
 
+## Firebase emulator run
+
+Install Firebase CLI, then run the local backend from the project root:
+
+```bash
+npm install -g firebase-tools
+firebase emulators:start --only auth,firestore,functions,storage
+```
+
+Run the Flutter app against the emulators:
+
+```bash
+flutter run --dart-define=USE_FIREBASE_EMULATORS=true --dart-define=FIREBASE_EMULATOR_HOST=10.0.2.2
+```
+
+Use `localhost` instead of `10.0.2.2` for desktop/web targets.
+
 ## Required Firebase services
 
 Enable these in Firebase Console:

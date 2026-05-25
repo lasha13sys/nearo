@@ -6,11 +6,18 @@ import '../../../core/theme/nearo_theme.dart';
 import '../../../domain/entities/nearo_user.dart';
 import '../signals/signal_inbox_screen.dart';
 
-class NearbyScreen extends ConsumerWidget {
+class NearbyScreen extends ConsumerStatefulWidget {
   const NearbyScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<NearbyScreen> createState() => _NearbyScreenState();
+}
+
+class _NearbyScreenState extends ConsumerState<NearbyScreen> {
+  var _selectedFilter = 'All';
+
+  @override
+  Widget build(BuildContext context) {
     final nearby = ref.watch(nearbyUsersProvider);
     final currentUser = ref.watch(authControllerProvider).valueOrNull;
     final profile = ref.watch(currentUserProfileProvider).valueOrNull;
@@ -28,59 +35,82 @@ class NearbyScreen extends ConsumerWidget {
           child: RefreshIndicator(
             onRefresh: () async => ref.invalidate(nearbyUsersProvider),
             child: nearby.when(
-              data: (users) => ListView(
-                padding: const EdgeInsets.fromLTRB(18, 18, 18, 110),
-                children: [
-                  Row(
-                    children: [
-                      Text(
-                        'Nearo',
-                        style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                              color: NearoTheme.neon,
-                              fontWeight: FontWeight.w800,
-                            ),
-                      ),
-                      const Spacer(),
-                      IconButton(
-                        tooltip: 'Incoming Sparks',
-                        onPressed: () => Navigator.of(context).push(
-                          MaterialPageRoute<void>(builder: (_) => const SignalInboxScreen()),
+              data: (users) {
+                final filteredUsers = _applyFilter(users);
+                return ListView(
+                  padding: const EdgeInsets.fromLTRB(18, 18, 18, 110),
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          'Nearo',
+                          style: Theme.of(context).textTheme.headlineMedium
+                              ?.copyWith(
+                                color: NearoTheme.neon,
+                                fontWeight: FontWeight.w800,
+                              ),
                         ),
-                        icon: const Icon(Icons.notifications_none),
+                        const Spacer(),
+                        IconButton(
+                          tooltip: 'Incoming Sparks',
+                          onPressed: () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => const SignalInboxScreen(),
+                            ),
+                          ),
+                          icon: const Icon(Icons.notifications_none),
+                        ),
+                        IconButton(
+                          tooltip: 'Refresh Wi-Fi proximity',
+                          onPressed: currentUser == null
+                              ? null
+                              : () => _refreshProximity(ref, currentUser.uid),
+                          icon: const Icon(Icons.wifi_tethering),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 18),
+                    Text(
+                      'Nearby',
+                      style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                        fontWeight: FontWeight.w800,
                       ),
-                      IconButton(
-                        tooltip: 'Refresh Wi-Fi proximity',
-                        onPressed: currentUser == null ? null : () => _refreshProximity(ref, currentUser.uid),
-                        icon: const Icon(Icons.wifi_tethering),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      profile?.visible == true
+                          ? 'People open to connect on your current venue signal'
+                          : 'Turn visibility on to appear nearby',
+                      style: const TextStyle(color: NearoTheme.mutedText),
+                    ),
+                    const SizedBox(height: 20),
+                    _VisibilityPanel(
+                      visible: profile?.visible ?? false,
+                      userId: currentUser?.uid,
+                    ),
+                    const SizedBox(height: 18),
+                    _FilterChips(
+                      selected: _selectedFilter,
+                      onSelected: (value) =>
+                          setState(() => _selectedFilter = value),
+                    ),
+                    const SizedBox(height: 24),
+                    Text(
+                      '${filteredUsers.length} people nearby',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w800,
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 18),
-                  Text(
-                    'Nearby',
-                    style: Theme.of(context).textTheme.displaySmall?.copyWith(fontWeight: FontWeight.w800),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    profile?.visible == true ? 'People open to connect on your current venue signal' : 'Turn visibility on to appear nearby',
-                    style: const TextStyle(color: NearoTheme.mutedText),
-                  ),
-                  const SizedBox(height: 20),
-                  _VisibilityPanel(visible: profile?.visible ?? false, userId: currentUser?.uid),
-                  const SizedBox(height: 18),
-                  const _FilterChips(),
-                  const SizedBox(height: 24),
-                  Text(
-                    '${users.length} people nearby',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),
-                  ),
-                  const SizedBox(height: 16),
-                  if (users.isEmpty) const _EmptyNearbyState(),
-                  for (final user in users) _NearbyUserCard(user: user),
-                ],
-              ),
+                    ),
+                    const SizedBox(height: 16),
+                    if (filteredUsers.isEmpty) const _EmptyNearbyState(),
+                    for (final user in filteredUsers)
+                      _NearbyUserCard(user: user),
+                  ],
+                );
+              },
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (_, __) => const _ErrorState(message: 'Could not load nearby users.'),
+              error: (_, __) =>
+                  const _ErrorState(message: 'Could not load nearby users.'),
             ),
           ),
         ),
@@ -90,9 +120,33 @@ class NearbyScreen extends ConsumerWidget {
 
   Future<void> _refreshProximity(WidgetRef ref, String uid) async {
     final hash = await ref.read(proximityServiceProvider).getCurrentWifiHash();
-    await ref.read(userRepositoryProvider).updateWifiHash(uid: uid, wifiHash: hash);
+    await ref
+        .read(userRepositoryProvider)
+        .updateWifiHash(uid: uid, wifiHash: hash);
     ref.invalidate(currentUserProfileProvider);
     ref.invalidate(nearbyUsersProvider);
+  }
+
+  List<NearoUser> _applyFilter(List<NearoUser> users) {
+    return switch (_selectedFilter) {
+      'Open to Meet' =>
+        users
+            .where((user) => user.moodStatus.toLowerCase().contains('meet'))
+            .toList(),
+      'Easy Start' =>
+        users
+            .where((user) => user.moodStatus.toLowerCase().contains('easy'))
+            .toList(),
+      'Party Mood' =>
+        users
+            .where((user) => user.moodStatus.toLowerCase().contains('party'))
+            .toList(),
+      'Chill' =>
+        users
+            .where((user) => user.moodStatus.toLowerCase().contains('chill'))
+            .toList(),
+      _ => users,
+    };
   }
 }
 
@@ -124,7 +178,9 @@ class _VisibilityPanel extends ConsumerWidget {
             onChanged: userId == null
                 ? null
                 : (value) async {
-                    await ref.read(userRepositoryProvider).updateVisibility(uid: userId!, visible: value);
+                    await ref
+                        .read(userRepositoryProvider)
+                        .updateVisibility(uid: userId!, visible: value);
                     ref.invalidate(currentUserProfileProvider);
                     ref.invalidate(nearbyUsersProvider);
                   },
@@ -136,7 +192,10 @@ class _VisibilityPanel extends ConsumerWidget {
 }
 
 class _FilterChips extends StatelessWidget {
-  const _FilterChips();
+  final String selected;
+  final ValueChanged<String> onSelected;
+
+  const _FilterChips({required this.selected, required this.onSelected});
 
   @override
   Widget build(BuildContext context) {
@@ -154,12 +213,20 @@ class _FilterChips extends StatelessWidget {
         itemCount: filters.length,
         separatorBuilder: (_, __) => const SizedBox(width: 10),
         itemBuilder: (context, index) {
-          final selected = index == 0;
-          return Chip(
+          final isSelected = filters[index].$1 == selected;
+          return ChoiceChip(
             avatar: Icon(filters[index].$2, size: 18),
             label: Text(filters[index].$1),
-            backgroundColor: selected ? NearoTheme.neon.withValues(alpha: 0.45) : NearoTheme.surface,
-            side: BorderSide(color: NearoTheme.neon.withValues(alpha: selected ? 0.55 : 0.18)),
+            selected: isSelected,
+            onSelected: (_) => onSelected(filters[index].$1),
+            backgroundColor: isSelected
+                ? NearoTheme.neon.withValues(alpha: 0.45)
+                : NearoTheme.surface,
+            side: BorderSide(
+              color: NearoTheme.neon.withValues(
+                alpha: isSelected ? 0.55 : 0.18,
+              ),
+            ),
           );
         },
       ),
@@ -191,7 +258,12 @@ class _NearbyUserCardState extends ConsumerState<_NearbyUserCard> {
         color: NearoTheme.surface.withValues(alpha: 0.78),
         borderRadius: BorderRadius.circular(28),
         border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
-        boxShadow: [BoxShadow(color: NearoTheme.neon.withValues(alpha: 0.12), blurRadius: 24)],
+        boxShadow: [
+          BoxShadow(
+            color: NearoTheme.neon.withValues(alpha: 0.12),
+            blurRadius: 24,
+          ),
+        ],
       ),
       child: Row(
         children: [
@@ -203,14 +275,18 @@ class _NearbyUserCardState extends ConsumerState<_NearbyUserCard> {
               child: widget.user.photoUrl.isEmpty
                   ? Container(
                       color: NearoTheme.elevated,
-                      child: Center(child: Text(_initial(widget.user.nickname))),
+                      child: Center(
+                        child: Text(_initial(widget.user.nickname)),
+                      ),
                     )
                   : Image.network(
                       widget.user.photoUrl,
                       fit: BoxFit.cover,
                       errorBuilder: (_, __, ___) => Container(
                         color: NearoTheme.elevated,
-                        child: Center(child: Text(_initial(widget.user.nickname))),
+                        child: Center(
+                          child: Text(_initial(widget.user.nickname)),
+                        ),
                       ),
                     ),
             ),
@@ -222,7 +298,9 @@ class _NearbyUserCardState extends ConsumerState<_NearbyUserCard> {
               children: [
                 Text(
                   widget.user.nickname,
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
                 const SizedBox(height: 8),
                 _MoodBadge(label: widget.user.moodStatus),
@@ -237,7 +315,9 @@ class _NearbyUserCardState extends ConsumerState<_NearbyUserCard> {
                 Align(
                   alignment: Alignment.centerRight,
                   child: FilledButton.icon(
-                    onPressed: _sent || _loading || currentUser == null ? null : () => _sendSignal(currentUser.uid),
+                    onPressed: _sent || _loading || currentUser == null
+                        ? null
+                        : () => _sendSignal(currentUser.uid),
                     icon: Icon(_sent ? Icons.check : Icons.auto_awesome),
                     label: Text(_sent ? 'Sent' : 'Send Spark'),
                   ),
@@ -252,7 +332,9 @@ class _NearbyUserCardState extends ConsumerState<_NearbyUserCard> {
 
   Future<void> _sendSignal(String currentUserId) async {
     setState(() => _loading = true);
-    final result = await ref.read(signalRepositoryProvider).sendSignal(
+    final result = await ref
+        .read(signalRepositoryProvider)
+        .sendSignal(
           senderId: currentUserId,
           receiverId: widget.user.uid,
           venueWifiHash: widget.user.wifiHash,
@@ -263,12 +345,16 @@ class _NearbyUserCardState extends ConsumerState<_NearbyUserCard> {
         _sent = result.success;
         _loading = false;
       });
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result.message)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(result.message)));
     }
   }
 
   String _initial(String value) {
-    return value.trim().isEmpty ? '?' : value.trim().substring(0, 1).toUpperCase();
+    return value.trim().isEmpty
+        ? '?'
+        : value.trim().substring(0, 1).toUpperCase();
   }
 }
 
@@ -298,7 +384,9 @@ class _EmptyNearbyState extends StatelessWidget {
   Widget build(BuildContext context) {
     return const Padding(
       padding: EdgeInsets.symmetric(vertical: 80),
-      child: Center(child: Text('No visible users found at your current venue.')),
+      child: Center(
+        child: Text('No visible users found at your current venue.'),
+      ),
     );
   }
 }

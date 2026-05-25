@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/repositories/auth_repository.dart';
 import '../../data/repositories/chat_repository.dart';
 import '../../data/repositories/contact_reveal_repository.dart';
+import '../../data/repositories/profile_photo_repository.dart';
 import '../../data/repositories/signal_repository.dart';
 import '../../data/repositories/user_repository.dart';
 import '../../data/repositories/venue_repository.dart';
@@ -36,8 +37,12 @@ final signalRepositoryProvider = Provider<SignalRepository>((ref) {
   return SignalRepository(firebaseReady: ref.watch(firebaseReadyProvider));
 });
 
-final contactRevealRepositoryProvider = Provider<ContactRevealRepository>((ref) {
-  return ContactRevealRepository(firebaseReady: ref.watch(firebaseReadyProvider));
+final contactRevealRepositoryProvider = Provider<ContactRevealRepository>((
+  ref,
+) {
+  return ContactRevealRepository(
+    firebaseReady: ref.watch(firebaseReadyProvider),
+  );
 });
 
 final venueRepositoryProvider = Provider<VenueRepository>((ref) {
@@ -46,6 +51,12 @@ final venueRepositoryProvider = Provider<VenueRepository>((ref) {
 
 final chatRepositoryProvider = Provider<ChatRepository>((ref) {
   return ChatRepository(firebaseReady: ref.watch(firebaseReadyProvider));
+});
+
+final profilePhotoRepositoryProvider = Provider<ProfilePhotoRepository>((ref) {
+  return ProfilePhotoRepository(
+    firebaseReady: ref.watch(firebaseReadyProvider),
+  );
 });
 
 final proximityServiceProvider = Provider<ProximityService>((ref) {
@@ -60,13 +71,14 @@ final notificationServiceProvider = Provider<NotificationService>((ref) {
   return NotificationService(firebaseReady: ref.watch(firebaseReadyProvider));
 });
 
-final authControllerProvider = StateNotifierProvider<AuthController, AsyncValue<AppUser?>>((ref) {
-  return AuthController(
-    ref: ref,
-    authRepository: ref.watch(authRepositoryProvider),
-    userRepository: ref.watch(userRepositoryProvider),
-  );
-});
+final authControllerProvider =
+    StateNotifierProvider<AuthController, AsyncValue<AppUser?>>((ref) {
+      return AuthController(
+        ref: ref,
+        authRepository: ref.watch(authRepositoryProvider),
+        userRepository: ref.watch(userRepositoryProvider),
+      );
+    });
 
 class AuthController extends StateNotifier<AsyncValue<AppUser?>> {
   final Ref ref;
@@ -78,12 +90,13 @@ class AuthController extends StateNotifier<AsyncValue<AppUser?>> {
     required this.ref,
     required AuthRepository authRepository,
     required UserRepository userRepository,
-  })  : _authRepository = authRepository,
-        _userRepository = userRepository,
-        super(const AsyncLoading()) {
+  }) : _authRepository = authRepository,
+       _userRepository = userRepository,
+       super(const AsyncLoading()) {
     _subscription = _authRepository.authStateChanges().listen(
       (user) => state = AsyncData(user),
-      onError: (Object error, StackTrace stackTrace) => state = AsyncError(error, stackTrace),
+      onError: (Object error, StackTrace stackTrace) =>
+          state = AsyncError(error, stackTrace),
     );
   }
 
@@ -171,22 +184,45 @@ final currentUserProfileProvider = StreamProvider<NearoUser?>((ref) {
   return ref.watch(userRepositoryProvider).watchUser(user.uid);
 });
 
+final userProfileByIdProvider = StreamProvider.family<NearoUser?, String>((
+  ref,
+  uid,
+) {
+  if (uid.isEmpty) return Stream<NearoUser?>.value(null);
+  return ref.watch(userRepositoryProvider).watchUser(uid);
+});
+
 final nearbyUsersProvider = StreamProvider<List<NearoUser>>((ref) {
   final user = ref.watch(authControllerProvider).valueOrNull;
   final profile = ref.watch(currentUserProfileProvider).valueOrNull;
-  if (user == null || profile?.visible == false) return Stream<List<NearoUser>>.value(const []);
-  return ref.watch(userRepositoryProvider).watchNearbyUsers(
+  final blockedUserIds =
+      ref.watch(blockedUserIdsProvider).valueOrNull ?? const <String>[];
+  if (user == null || profile?.visible == false) {
+    return Stream<List<NearoUser>>.value(const []);
+  }
+  return ref
+      .watch(userRepositoryProvider)
+      .watchNearbyUsers(
         currentUserId: user.uid,
         wifiHash: profile?.wifiHash,
-        blockedUsers: profile?.blockedUsers ?? const [],
+        blockedUsers: blockedUserIds,
       );
+});
+
+final blockedUserIdsProvider = StreamProvider<List<String>>((ref) {
+  final user = ref.watch(authControllerProvider).valueOrNull;
+  if (user == null) return Stream<List<String>>.value(const []);
+  return ref.watch(userRepositoryProvider).watchBlockedUserIds(user.uid);
 });
 
 final activeVenuesProvider = StreamProvider<List<Venue>>((ref) {
   return ref.watch(venueRepositoryProvider).watchActiveVenues();
 });
 
-final venueEventsProvider = StreamProvider.family<List<VenueEvent>, String>((ref, venueId) {
+final venueEventsProvider = StreamProvider.family<List<VenueEvent>, String>((
+  ref,
+  venueId,
+) {
   return ref.watch(venueRepositoryProvider).watchVenueEvents(venueId);
 });
 
@@ -202,19 +238,30 @@ final matchesProvider = StreamProvider<List<Match>>((ref) {
   return ref.watch(signalRepositoryProvider).watchMatches(user.uid);
 });
 
-final connectionProvider = StreamProvider.family<Connection?, String>((ref, connectionId) {
+final connectionProvider = StreamProvider.family<Connection?, String>((
+  ref,
+  connectionId,
+) {
   return ref.watch(signalRepositoryProvider).watchConnection(connectionId);
 });
 
-final contactRevealsProvider = StreamProvider.family<List<ContactReveal>, String>((ref, matchId) {
-  return ref.watch(contactRevealRepositoryProvider).watchMatchReveals(matchId);
-});
+final contactRevealsProvider =
+    StreamProvider.family<List<ContactReveal>, String>((ref, matchId) {
+      return ref
+          .watch(contactRevealRepositoryProvider)
+          .watchMatchReveals(matchId);
+    });
 
-final conversationProvider = StreamProvider.family<Conversation?, String>((ref, conversationId) {
+final conversationProvider = StreamProvider.family<Conversation?, String>((
+  ref,
+  conversationId,
+) {
   return ref.watch(chatRepositoryProvider).watchConversation(conversationId);
 });
 
 final icebreakersProvider = StreamProvider<List<Icebreaker>>((ref) {
   final profile = ref.watch(currentUserProfileProvider).valueOrNull;
-  return ref.watch(chatRepositoryProvider).watchIcebreakers(currentUserAge: profile?.age ?? 18);
+  return ref
+      .watch(chatRepositoryProvider)
+      .watchIcebreakers(currentUserAge: profile?.age ?? 18);
 });
