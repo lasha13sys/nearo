@@ -120,14 +120,13 @@ service cloud.firestore {
         && request.resource.data.status == 'requested'
         && request.resource.data.createdAt is timestamp
         && request.resource.data.expiresAt is timestamp
-        && request.resource.data.revealedValue == null;
+        && !request.resource.data.keys().hasAny(['revealedValue', 'approvedAt']);
       allow update: if signedIn()
         && request.auth.uid == resource.data.receiverId
         && resource.data.status == 'requested'
-        && request.resource.data.revealedValue == null
         && request.resource.data.status in ['approved', 'declined']
         && !request.resource.data.diff(resource.data).affectedKeys().hasAny([
-          'matchId', 'requesterId', 'receiverId', 'contactType', 'createdAt', 'expiresAt'
+          'matchId', 'requesterId', 'receiverId', 'contactType', 'createdAt', 'expiresAt', 'revealedValue', 'approvedAt'
         ]);
       allow delete: if false;
     }

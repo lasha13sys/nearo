@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/providers/app_providers.dart';
 import '../../../core/theme/nearo_theme.dart';
 import '../matches/matches_screen.dart';
@@ -27,21 +28,37 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
     return Scaffold(
       body: _screens[_index],
       bottomNavigationBar: DecoratedBox(
         decoration: BoxDecoration(
           color: NearoTheme.surface,
-          border: Border(top: BorderSide(color: Colors.white.withValues(alpha: 0.06))),
+          border: Border(
+            top: BorderSide(color: Colors.white.withValues(alpha: 0.06)),
+          ),
         ),
         child: BottomNavigationBar(
           currentIndex: _index,
           onTap: (value) => setState(() => _index = value),
-          items: const [
-            BottomNavigationBarItem(icon: Icon(Icons.home_outlined), label: 'Home'),
-            BottomNavigationBarItem(icon: Icon(Icons.radar), label: 'Nearby'),
-            BottomNavigationBarItem(icon: Icon(Icons.location_on_outlined), label: 'Spots'),
-            BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
+          items: [
+            BottomNavigationBarItem(
+              icon: const Icon(Icons.home_outlined),
+              label: l10n.t('nav.home'),
+            ),
+            BottomNavigationBarItem(
+              icon: const Icon(Icons.radar),
+              label: l10n.t('nav.nearby'),
+            ),
+            BottomNavigationBarItem(
+              icon: const Icon(Icons.location_on_outlined),
+              label: l10n.t('nav.spots'),
+            ),
+            BottomNavigationBarItem(
+              icon: const Icon(Icons.person),
+              label: l10n.t('nav.profile'),
+            ),
           ],
         ),
       ),
@@ -57,6 +74,7 @@ class _HomeLandingScreen extends ConsumerWidget {
     final nearby = ref.watch(nearbyUsersProvider).valueOrNull ?? const [];
     final matches = ref.watch(matchesProvider).valueOrNull ?? const [];
     final profile = ref.watch(currentUserProfileProvider).valueOrNull;
+    final l10n = AppLocalizations.of(context);
 
     return Scaffold(
       body: Container(
@@ -74,26 +92,44 @@ class _HomeLandingScreen extends ConsumerWidget {
               Row(
                 children: [
                   Text(
-                    'Nearo',
+                    l10n.t('app.name'),
                     style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                          color: NearoTheme.text,
-                          fontWeight: FontWeight.w500,
-                        ),
+                      color: NearoTheme.text,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                   const Spacer(),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 8,
+                    ),
                     decoration: BoxDecoration(
                       color: NearoTheme.surface.withValues(alpha: 0.82),
                       borderRadius: BorderRadius.circular(999),
-                      boxShadow: [BoxShadow(color: NearoTheme.neon.withValues(alpha: 0.18), blurRadius: 24)],
+                      boxShadow: [
+                        BoxShadow(
+                          color: NearoTheme.neon.withValues(alpha: 0.18),
+                          blurRadius: 24,
+                        ),
+                      ],
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.circle, color: profile?.visible == true ? NearoTheme.neon : NearoTheme.mutedText, size: 10),
+                        Icon(
+                          Icons.circle,
+                          color: profile?.visible == true
+                              ? NearoTheme.neon
+                              : NearoTheme.mutedText,
+                          size: 10,
+                        ),
                         const SizedBox(width: 8),
-                        Text(profile?.visible == true ? 'Open to Connect' : 'Invisible'),
+                        Text(
+                          profile?.visible == true
+                              ? l10n.t('status.openToConnect')
+                              : l10n.t('status.invisible'),
+                        ),
                       ],
                     ),
                   ),
@@ -105,19 +141,32 @@ class _HomeLandingScreen extends ConsumerWidget {
                 decoration: BoxDecoration(
                   color: NearoTheme.surface.withValues(alpha: 0.76),
                   borderRadius: BorderRadius.circular(36),
-                  border: Border.all(color: NearoTheme.neon.withValues(alpha: 0.22)),
+                  border: Border.all(
+                    color: NearoTheme.neon.withValues(alpha: 0.22),
+                  ),
                 ),
                 child: Row(
                   children: [
-                    const Expanded(
-                      child: Text('Visible Nearby', style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800)),
+                    Expanded(
+                      child: Text(
+                        l10n.t('visibility.visibleNearby'),
+                        style: const TextStyle(
+                          fontSize: 26,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
                     ),
                     Switch(
                       value: profile?.visible ?? false,
                       onChanged: profile == null
                           ? null
                           : (value) async {
-                              await ref.read(userRepositoryProvider).updateVisibility(uid: profile.uid, visible: value);
+                              await ref
+                                  .read(userRepositoryProvider)
+                                  .updateVisibility(
+                                    uid: profile.uid,
+                                    visible: value,
+                                  );
                               ref.invalidate(currentUserProfileProvider);
                               ref.invalidate(nearbyUsersProvider);
                             },
@@ -128,8 +177,11 @@ class _HomeLandingScreen extends ConsumerWidget {
               const SizedBox(height: 34),
               Center(
                 child: Text(
-                  '${nearby.length} people nearby',
-                  style: const TextStyle(color: NearoTheme.mutedText, fontSize: 18),
+                  l10n.peopleNearby(nearby.length),
+                  style: const TextStyle(
+                    color: NearoTheme.mutedText,
+                    fontSize: 18,
+                  ),
                 ),
               ),
               const SizedBox(height: 28),
@@ -137,7 +189,9 @@ class _HomeLandingScreen extends ConsumerWidget {
                 Card(
                   child: ListTile(
                     contentPadding: const EdgeInsets.all(18),
-                    leading: const CircleAvatar(child: Icon(Icons.auto_awesome)),
+                    leading: const CircleAvatar(
+                      child: Icon(Icons.auto_awesome),
+                    ),
                     title: Text(nearby.first.nickname),
                     subtitle: Text(nearby.first.moodStatus),
                     trailing: const Icon(Icons.chevron_right),
@@ -149,10 +203,16 @@ class _HomeLandingScreen extends ConsumerWidget {
                 child: ListTile(
                   contentPadding: const EdgeInsets.all(18),
                   leading: const CircleAvatar(child: Icon(Icons.favorite)),
-                  title: Text('${matches.length} active matches'),
-                  subtitle: const Text('Choose Meet Now, Easy Start, Fun Game, or contact reveal.'),
+                  title: Text(
+                    "${matches.length} ${l10n.t('home.activeMatches')}",
+                  ),
+                  subtitle: Text(l10n.t('home.matchSubtitle')),
                   trailing: const Icon(Icons.chevron_right),
-                  onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const MatchesScreen())),
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const MatchesScreen(),
+                    ),
+                  ),
                 ),
               ),
             ],

@@ -70,6 +70,13 @@ flutter run --dart-define=USE_FIREBASE_EMULATORS=true --dart-define=FIREBASE_EMU
 
 Use `localhost` instead of `10.0.2.2` for desktop/web targets.
 
+Run backend smoke and rules tests:
+
+```bash
+firebase emulators:exec --only auth,firestore,functions,storage --project nearo-demo "npm --prefix firebase/functions run smoke:emulators"
+firebase emulators:exec --only firestore --project nearo-demo "npm --prefix firebase/functions run test:rules"
+```
+
 ## Required Firebase services
 
 Enable these in Firebase Console:

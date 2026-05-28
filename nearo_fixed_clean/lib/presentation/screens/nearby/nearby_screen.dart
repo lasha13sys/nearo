@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/providers/app_providers.dart';
 import '../../../core/theme/nearo_theme.dart';
 import '../../../domain/entities/nearo_user.dart';
@@ -14,13 +15,14 @@ class NearbyScreen extends ConsumerStatefulWidget {
 }
 
 class _NearbyScreenState extends ConsumerState<NearbyScreen> {
-  var _selectedFilter = 'All';
+  var _selectedFilter = 'all';
 
   @override
   Widget build(BuildContext context) {
     final nearby = ref.watch(nearbyUsersProvider);
     final currentUser = ref.watch(authControllerProvider).valueOrNull;
     final profile = ref.watch(currentUserProfileProvider).valueOrNull;
+    final l10n = AppLocalizations.of(context);
 
     return Scaffold(
       body: Container(
@@ -43,7 +45,7 @@ class _NearbyScreenState extends ConsumerState<NearbyScreen> {
                     Row(
                       children: [
                         Text(
-                          'Nearo',
+                          l10n.t('app.name'),
                           style: Theme.of(context).textTheme.headlineMedium
                               ?.copyWith(
                                 color: NearoTheme.neon,
@@ -52,7 +54,7 @@ class _NearbyScreenState extends ConsumerState<NearbyScreen> {
                         ),
                         const Spacer(),
                         IconButton(
-                          tooltip: 'Incoming Sparks',
+                          tooltip: l10n.t('nearby.incomingSparks'),
                           onPressed: () => Navigator.of(context).push(
                             MaterialPageRoute<void>(
                               builder: (_) => const SignalInboxScreen(),
@@ -61,7 +63,7 @@ class _NearbyScreenState extends ConsumerState<NearbyScreen> {
                           icon: const Icon(Icons.notifications_none),
                         ),
                         IconButton(
-                          tooltip: 'Refresh Wi-Fi proximity',
+                          tooltip: l10n.t('nearby.refreshWifi'),
                           onPressed: currentUser == null
                               ? null
                               : () => _refreshProximity(ref, currentUser.uid),
@@ -71,7 +73,7 @@ class _NearbyScreenState extends ConsumerState<NearbyScreen> {
                     ),
                     const SizedBox(height: 18),
                     Text(
-                      'Nearby',
+                      l10n.t('nearby.title'),
                       style: Theme.of(context).textTheme.displaySmall?.copyWith(
                         fontWeight: FontWeight.w800,
                       ),
@@ -79,8 +81,8 @@ class _NearbyScreenState extends ConsumerState<NearbyScreen> {
                     const SizedBox(height: 6),
                     Text(
                       profile?.visible == true
-                          ? 'People open to connect on your current venue signal'
-                          : 'Turn visibility on to appear nearby',
+                          ? l10n.t('nearby.visibleSubtitle')
+                          : l10n.t('nearby.invisibleSubtitle'),
                       style: const TextStyle(color: NearoTheme.mutedText),
                     ),
                     const SizedBox(height: 20),
@@ -96,7 +98,7 @@ class _NearbyScreenState extends ConsumerState<NearbyScreen> {
                     ),
                     const SizedBox(height: 24),
                     Text(
-                      '${filteredUsers.length} people nearby',
+                      l10n.peopleNearby(filteredUsers.length),
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.w800,
                       ),
@@ -109,8 +111,7 @@ class _NearbyScreenState extends ConsumerState<NearbyScreen> {
                 );
               },
               loading: () => const Center(child: CircularProgressIndicator()),
-              error: (_, __) =>
-                  const _ErrorState(message: 'Could not load nearby users.'),
+              error: (_, __) => _ErrorState(message: l10n.t('nearby.error')),
             ),
           ),
         ),
@@ -129,19 +130,19 @@ class _NearbyScreenState extends ConsumerState<NearbyScreen> {
 
   List<NearoUser> _applyFilter(List<NearoUser> users) {
     return switch (_selectedFilter) {
-      'Open to Meet' =>
+      'openToMeet' =>
         users
             .where((user) => user.moodStatus.toLowerCase().contains('meet'))
             .toList(),
-      'Easy Start' =>
+      'easyStart' =>
         users
             .where((user) => user.moodStatus.toLowerCase().contains('easy'))
             .toList(),
-      'Party Mood' =>
+      'partyMood' =>
         users
             .where((user) => user.moodStatus.toLowerCase().contains('party'))
             .toList(),
-      'Chill' =>
+      'chill' =>
         users
             .where((user) => user.moodStatus.toLowerCase().contains('chill'))
             .toList(),
@@ -158,6 +159,7 @@ class _VisibilityPanel extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l10n = AppLocalizations.of(context);
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -167,10 +169,10 @@ class _VisibilityPanel extends ConsumerWidget {
       ),
       child: Row(
         children: [
-          const Expanded(
+          Expanded(
             child: Text(
-              'Visible Nearby',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
+              l10n.t('visibility.visibleNearby'),
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
             ),
           ),
           Switch(
@@ -199,12 +201,17 @@ class _FilterChips extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const filters = [
-      ('All', Icons.auto_awesome),
-      ('Open to Meet', Icons.favorite_border),
-      ('Easy Start', Icons.tips_and_updates_outlined),
-      ('Party Mood', Icons.music_note),
-      ('Chill', Icons.spa_outlined),
+    final l10n = AppLocalizations.of(context);
+    final filters = [
+      ('all', l10n.t('filter.all'), Icons.auto_awesome),
+      ('openToMeet', l10n.t('filter.openToMeet'), Icons.favorite_border),
+      (
+        'easyStart',
+        l10n.t('filter.easyStart'),
+        Icons.tips_and_updates_outlined,
+      ),
+      ('partyMood', l10n.t('filter.partyMood'), Icons.music_note),
+      ('chill', l10n.t('filter.chill'), Icons.spa_outlined),
     ];
     return SizedBox(
       height: 44,
@@ -213,12 +220,13 @@ class _FilterChips extends StatelessWidget {
         itemCount: filters.length,
         separatorBuilder: (_, __) => const SizedBox(width: 10),
         itemBuilder: (context, index) {
-          final isSelected = filters[index].$1 == selected;
+          final filter = filters[index];
+          final isSelected = filter.$1 == selected;
           return ChoiceChip(
-            avatar: Icon(filters[index].$2, size: 18),
-            label: Text(filters[index].$1),
+            avatar: Icon(filter.$3, size: 18),
+            label: Text(filter.$2),
             selected: isSelected,
-            onSelected: (_) => onSelected(filters[index].$1),
+            onSelected: (_) => onSelected(filter.$1),
             backgroundColor: isSelected
                 ? NearoTheme.neon.withValues(alpha: 0.45)
                 : NearoTheme.surface,
@@ -250,6 +258,7 @@ class _NearbyUserCardState extends ConsumerState<_NearbyUserCard> {
   @override
   Widget build(BuildContext context) {
     final currentUser = ref.watch(authControllerProvider).valueOrNull;
+    final l10n = AppLocalizations.of(context);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -306,7 +315,7 @@ class _NearbyUserCardState extends ConsumerState<_NearbyUserCard> {
                 _MoodBadge(label: widget.user.moodStatus),
                 const SizedBox(height: 14),
                 Text(
-                  widget.user.bio ?? 'Open to a calm conversation.',
+                  widget.user.bio ?? l10n.t('nearby.bioFallback'),
                   maxLines: 3,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(color: NearoTheme.mutedText),
@@ -319,7 +328,11 @@ class _NearbyUserCardState extends ConsumerState<_NearbyUserCard> {
                         ? null
                         : () => _sendSignal(currentUser.uid),
                     icon: Icon(_sent ? Icons.check : Icons.auto_awesome),
-                    label: Text(_sent ? 'Sent' : 'Send Spark'),
+                    label: Text(
+                      _sent
+                          ? l10n.t('nearby.sent')
+                          : l10n.t('nearby.sendSpark'),
+                    ),
                   ),
                 ),
               ],
@@ -382,11 +395,10 @@ class _EmptyNearbyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Padding(
-      padding: EdgeInsets.symmetric(vertical: 80),
-      child: Center(
-        child: Text('No visible users found at your current venue.'),
-      ),
+    final l10n = AppLocalizations.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 80),
+      child: Center(child: Text(l10n.t('nearby.empty'))),
     );
   }
 }

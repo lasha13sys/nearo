@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:ui';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../data/repositories/auth_repository.dart';
 import '../../data/repositories/chat_repository.dart';
@@ -24,6 +26,37 @@ import '../services/proximity_service.dart';
 import '../services/report_service.dart';
 
 final firebaseReadyProvider = Provider<bool>((ref) => false);
+
+final appLocaleProvider = StateNotifierProvider<AppLocaleController, Locale>((
+  ref,
+) {
+  return AppLocaleController()..load();
+});
+
+class AppLocaleController extends StateNotifier<Locale> {
+  static const _storageKey = 'nearo.locale';
+
+  AppLocaleController() : super(const Locale('en'));
+
+  Future<void> load() async {
+    final prefs = await SharedPreferences.getInstance();
+    final languageCode = prefs.getString(_storageKey);
+    if (languageCode == 'en') {
+      state = const Locale('en');
+    } else if (languageCode == 'ka') {
+      state = const Locale('ka');
+    }
+  }
+
+  Future<void> setLocale(Locale locale) async {
+    final normalized = locale.languageCode == 'ka'
+        ? const Locale('ka')
+        : const Locale('en');
+    state = normalized;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_storageKey, normalized.languageCode);
+  }
+}
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
   return AuthRepository(firebaseReady: ref.watch(firebaseReadyProvider));

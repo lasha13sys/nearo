@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/providers/app_providers.dart';
 import '../../../core/theme/nearo_theme.dart';
 import 'otp_screen.dart';
@@ -27,6 +28,8 @@ class _PhoneAuthScreenState extends ConsumerState<PhoneAuthScreen> {
   @override
   Widget build(BuildContext context) {
     final firebaseReady = ref.watch(firebaseReadyProvider);
+    final locale = ref.watch(appLocaleProvider);
+    final l10n = AppLocalizations.of(context);
 
     return Scaffold(
       body: Container(
@@ -49,21 +52,45 @@ class _PhoneAuthScreenState extends ConsumerState<PhoneAuthScreen> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       Text(
-                        'Nearo',
-                        style: Theme.of(context).textTheme.displaySmall?.copyWith(
+                        l10n.t('app.name'),
+                        style: Theme.of(context).textTheme.displaySmall
+                            ?.copyWith(
                               color: NearoTheme.neon,
                               fontWeight: FontWeight.w800,
                             ),
                       ),
                       const SizedBox(height: 14),
                       Text(
-                        'The social layer of real life.',
-                        style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.w700),
+                        l10n.t('app.tagline'),
+                        style: Theme.of(context).textTheme.headlineMedium
+                            ?.copyWith(fontWeight: FontWeight.w700),
+                      ),
+                      const SizedBox(height: 16),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: SegmentedButton<Locale>(
+                          segments: [
+                            ButtonSegment<Locale>(
+                              value: const Locale('en'),
+                              label: Text(l10n.t('language.english')),
+                            ),
+                            ButtonSegment<Locale>(
+                              value: const Locale('ka'),
+                              label: Text(l10n.t('language.georgian')),
+                            ),
+                          ],
+                          selected: {locale},
+                          onSelectionChanged: (selection) {
+                            ref
+                                .read(appLocaleProvider.notifier)
+                                .setLocale(selection.first);
+                          },
+                        ),
                       ),
                       const SizedBox(height: 12),
-                      const Text(
-                        'Enter your phone number to connect with people who are actually nearby.',
-                        style: TextStyle(color: NearoTheme.mutedText),
+                      Text(
+                        l10n.t('auth.phoneHelp'),
+                        style: const TextStyle(color: NearoTheme.mutedText),
                       ),
                       const SizedBox(height: 28),
                       if (!firebaseReady) const _DemoNotice(),
@@ -71,33 +98,48 @@ class _PhoneAuthScreenState extends ConsumerState<PhoneAuthScreen> {
                       TextFormField(
                         controller: _phoneController,
                         keyboardType: TextInputType.phone,
-                        decoration: const InputDecoration(
-                          labelText: 'Phone number',
-                          prefixIcon: Icon(Icons.phone_outlined),
+                        decoration: InputDecoration(
+                          labelText: l10n.t('auth.phoneNumber'),
+                          prefixIcon: const Icon(Icons.phone_outlined),
                         ),
                         validator: (value) {
                           final phone = value?.trim() ?? '';
                           if (phone.length < 8 || !phone.startsWith('+')) {
-                            return 'Use international format, e.g. +995...';
+                            return l10n.t('auth.phoneValidation');
                           }
                           return null;
                         },
                       ),
                       if (_error != null) ...[
                         const SizedBox(height: 12),
-                        Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                        Text(
+                          _error!,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.error,
+                          ),
+                        ),
                       ],
                       const SizedBox(height: 22),
                       ElevatedButton(
                         onPressed: _loading ? null : _sendCode,
                         child: _loading
-                            ? const SizedBox(height: 22, width: 22, child: CircularProgressIndicator(strokeWidth: 2))
-                            : const Text('Send SMS code'),
+                            ? const SizedBox(
+                                height: 22,
+                                width: 22,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : Text(l10n.t('auth.sendSmsCode')),
                       ),
                       const SizedBox(height: 12),
                       OutlinedButton(
-                        onPressed: _loading ? null : () => ref.read(authControllerProvider.notifier).continueAsDemo(),
-                        child: const Text('Continue in demo mode'),
+                        onPressed: _loading
+                            ? null
+                            : () => ref
+                                  .read(authControllerProvider.notifier)
+                                  .continueAsDemo(),
+                        child: Text(l10n.t('auth.continueDemo')),
                       ),
                     ],
                   ),
@@ -117,9 +159,9 @@ class _PhoneAuthScreenState extends ConsumerState<PhoneAuthScreen> {
       _error = null;
     });
     try {
-      final session = await ref.read(authControllerProvider.notifier).requestSmsCode(
-            phoneNumber: _phoneController.text,
-          );
+      final session = await ref
+          .read(authControllerProvider.notifier)
+          .requestSmsCode(phoneNumber: _phoneController.text);
       if (!mounted) return;
       await Navigator.of(context).push(
         MaterialPageRoute<void>(
@@ -150,7 +192,7 @@ class _DemoNotice extends StatelessWidget {
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: NearoTheme.neon.withValues(alpha: 0.25)),
       ),
-      child: const Text('Firebase credentials are placeholders. Any SMS code works in demo mode.'),
+      child: Text(AppLocalizations.of(context).t('auth.demoNotice')),
     );
   }
 }

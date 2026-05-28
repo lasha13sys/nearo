@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/providers/app_providers.dart';
 import '../../../core/theme/nearo_theme.dart';
 import '../../../domain/entities/app_user.dart';
@@ -47,8 +48,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Create your Nearo profile')),
+      appBar: AppBar(title: Text(l10n.t('onboarding.title'))),
       body: SafeArea(
         child: Form(
           key: _formKey,
@@ -56,24 +59,34 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
             padding: const EdgeInsets.all(20),
             children: [
               Text(
-                'Low-pressure, real-world connections.',
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
+                l10n.t('onboarding.subtitle'),
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
               ),
               const SizedBox(height: 16),
               TextFormField(
                 controller: _nicknameController,
-                decoration: const InputDecoration(labelText: 'Nickname'),
-                validator: (value) => value == null || value.trim().length < 2 ? 'Nickname is required.' : null,
+                decoration: InputDecoration(
+                  labelText: l10n.t('onboarding.nickname'),
+                ),
+                validator: (value) => value == null || value.trim().length < 2
+                    ? l10n.t('onboarding.nicknameRequired')
+                    : null,
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _ageController,
                 keyboardType: TextInputType.number,
                 inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                decoration: const InputDecoration(labelText: 'Age'),
+                decoration: InputDecoration(
+                  labelText: l10n.t('onboarding.age'),
+                ),
                 validator: (value) {
                   final age = int.tryParse(value ?? '');
-                  if (age == null || age < 18) return 'Nearo is 18+ for nightlife safety.';
+                  if (age == null || age < 18) {
+                    return l10n.t('onboarding.ageRequired');
+                  }
                   return null;
                 },
               ),
@@ -84,32 +97,63 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 onPickPhoto: _pickPhoto,
               ),
               const SizedBox(height: 12),
-              TextFormField(controller: _moodController, decoration: const InputDecoration(labelText: 'Mood')),
+              TextFormField(
+                controller: _moodController,
+                decoration: InputDecoration(
+                  labelText: l10n.t('onboarding.mood'),
+                ),
+              ),
               const SizedBox(height: 12),
-              TextFormField(controller: _bioController, decoration: const InputDecoration(labelText: 'Bio')),
+              TextFormField(
+                controller: _bioController,
+                decoration: InputDecoration(
+                  labelText: l10n.t('onboarding.bio'),
+                ),
+              ),
               const SizedBox(height: 20),
-              const Text('Optional socials', style: TextStyle(fontWeight: FontWeight.w800)),
+              Text(
+                l10n.t('onboarding.optionalSocials'),
+                style: const TextStyle(fontWeight: FontWeight.w800),
+              ),
               const SizedBox(height: 12),
-              TextFormField(controller: _instagramController, decoration: const InputDecoration(labelText: 'Instagram')),
+              TextFormField(
+                controller: _instagramController,
+                decoration: const InputDecoration(labelText: 'Instagram'),
+              ),
               const SizedBox(height: 12),
-              TextFormField(controller: _telegramController, decoration: const InputDecoration(labelText: 'Telegram')),
+              TextFormField(
+                controller: _telegramController,
+                decoration: const InputDecoration(labelText: 'Telegram'),
+              ),
               const SizedBox(height: 12),
-              TextFormField(controller: _whatsappController, decoration: const InputDecoration(labelText: 'WhatsApp')),
+              TextFormField(
+                controller: _whatsappController,
+                decoration: const InputDecoration(labelText: 'WhatsApp'),
+              ),
               const SizedBox(height: 16),
               CheckboxListTile(
                 value: _acceptedSafety,
-                onChanged: (value) => setState(() => _acceptedSafety = value ?? false),
+                onChanged: (value) =>
+                    setState(() => _acceptedSafety = value ?? false),
                 contentPadding: EdgeInsets.zero,
                 controlAffinity: ListTileControlAffinity.leading,
-                title: const Text('I agree to respectful conduct, privacy-first contact reveal, and real-world safety rules.'),
+                title: Text(l10n.t('onboarding.safetyAgreement')),
               ),
-              if (!_acceptedSafety) const Text('Safety agreement is required.', style: TextStyle(color: NearoTheme.mutedText)),
+              if (!_acceptedSafety)
+                Text(
+                  l10n.t('onboarding.safetyRequired'),
+                  style: const TextStyle(color: NearoTheme.mutedText),
+                ),
               const SizedBox(height: 18),
               ElevatedButton(
                 onPressed: _saving ? null : _save,
                 child: _saving
-                    ? const SizedBox(height: 22, width: 22, child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Text('Enter Nearo'),
+                    ? const SizedBox(
+                        height: 22,
+                        width: 22,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Text(l10n.t('onboarding.enter')),
               ),
             ],
           ),
@@ -120,9 +164,14 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
   Future<void> _save() async {
     if (!_acceptedSafety || !_formKey.currentState!.validate()) return;
-    if (_selectedPhoto == null && !_photoController.text.trim().startsWith('http')) {
+    if (_selectedPhoto == null &&
+        !_photoController.text.trim().startsWith('http')) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Profile photo is required.')),
+        SnackBar(
+          content: Text(
+            AppLocalizations.of(context).t('onboarding.photoRequired'),
+          ),
+        ),
       );
       return;
     }
@@ -130,12 +179,16 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     try {
       var photoUrl = _photoController.text.trim();
       if (_selectedPhoto != null) {
-        photoUrl = await ref.read(profilePhotoRepositoryProvider).uploadProfilePhoto(
+        photoUrl = await ref
+            .read(profilePhotoRepositoryProvider)
+            .uploadProfilePhoto(
               uid: widget.appUser.uid,
               image: _selectedPhoto!,
             );
       }
-      await ref.read(authControllerProvider.notifier).completeOnboarding(
+      await ref
+          .read(authControllerProvider.notifier)
+          .completeOnboarding(
             appUser: widget.appUser,
             nickname: _nicknameController.text,
             age: int.parse(_ageController.text),
@@ -151,7 +204,11 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not save profile. Please try again.')),
+          SnackBar(
+            content: Text(
+              AppLocalizations.of(context).t('onboarding.saveError'),
+            ),
+          ),
         );
       }
     } finally {
@@ -187,6 +244,7 @@ class _ProfilePhotoPicker extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final hasUrl = photoController.text.trim().startsWith('http');
+    final l10n = AppLocalizations.of(context);
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
@@ -197,15 +255,22 @@ class _ProfilePhotoPicker extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Profile photo', style: TextStyle(fontWeight: FontWeight.w800)),
+          Text(
+            l10n.t('onboarding.profilePhoto'),
+            style: const TextStyle(fontWeight: FontWeight.w800),
+          ),
           const SizedBox(height: 12),
           Row(
             children: [
               CircleAvatar(
                 radius: 34,
                 backgroundColor: NearoTheme.surface,
-                backgroundImage: hasUrl ? NetworkImage(photoController.text.trim()) : null,
-                child: selectedPhoto == null && !hasUrl ? const Icon(Icons.person_add_alt_1) : null,
+                backgroundImage: hasUrl
+                    ? NetworkImage(photoController.text.trim())
+                    : null,
+                child: selectedPhoto == null && !hasUrl
+                    ? const Icon(Icons.person_add_alt_1)
+                    : null,
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -213,7 +278,10 @@ class _ProfilePhotoPicker extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      selectedPhoto?.name ?? (hasUrl ? 'Photo URL added' : 'Add a clear profile photo'),
+                      selectedPhoto?.name ??
+                          (hasUrl
+                              ? l10n.t('onboarding.photoUrlAdded')
+                              : l10n.t('onboarding.addClearPhoto')),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -221,7 +289,7 @@ class _ProfilePhotoPicker extends StatelessWidget {
                     FilledButton.icon(
                       onPressed: onPickPhoto,
                       icon: const Icon(Icons.photo_library_outlined),
-                      label: const Text('Choose photo'),
+                      label: Text(l10n.t('onboarding.choosePhoto')),
                     ),
                   ],
                 ),
@@ -231,7 +299,9 @@ class _ProfilePhotoPicker extends StatelessWidget {
           const SizedBox(height: 12),
           TextFormField(
             controller: photoController,
-            decoration: const InputDecoration(labelText: 'Or paste photo URL'),
+            decoration: InputDecoration(
+              labelText: l10n.t('onboarding.pastePhotoUrl'),
+            ),
           ),
         ],
       ),

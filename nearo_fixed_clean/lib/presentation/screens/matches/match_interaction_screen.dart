@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/providers/app_providers.dart';
 import '../../../core/theme/nearo_theme.dart';
 import '../../../data/repositories/contact_reveal_repository.dart';
@@ -26,6 +27,7 @@ class MatchInteractionScreen extends ConsumerWidget {
     final connection = ref.watch(connectionProvider(connectionId));
     final reveals = ref.watch(contactRevealsProvider(match.id));
     final otherUserId = match.otherUserId(currentUserId);
+    final l10n = AppLocalizations.of(context);
 
     return Scaffold(
       body: Container(
@@ -55,7 +57,7 @@ class MatchInteractionScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 18),
               Text(
-                "It's a Match",
+                l10n.t('match.title'),
                 textAlign: TextAlign.center,
                 style: Theme.of(context).textTheme.displaySmall?.copyWith(
                   fontWeight: FontWeight.w800,
@@ -70,11 +72,11 @@ class MatchInteractionScreen extends ConsumerWidget {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        const _GlowAvatar(label: 'You'),
+                        _GlowAvatar(label: l10n.t('match.you')),
                         const SizedBox(width: 52),
                         _GlowAvatar(
                           label: otherUserId.isEmpty
-                              ? 'Match'
+                              ? l10n.t('match.match')
                               : otherUserId.substring(0, 1).toUpperCase(),
                         ),
                       ],
@@ -104,7 +106,11 @@ class MatchInteractionScreen extends ConsumerWidget {
                     : Padding(
                         padding: const EdgeInsets.only(bottom: 16),
                         child: Text(
-                          'Temporary connection until ${TimeOfDay.fromDateTime(item!.temporaryTimerEndsAt!).format(context)}',
+                          l10n.temporaryConnectionUntil(
+                            TimeOfDay.fromDateTime(
+                              item!.temporaryTimerEndsAt!,
+                            ).format(context),
+                          ),
                           textAlign: TextAlign.center,
                           style: const TextStyle(color: NearoTheme.mutedText),
                         ),
@@ -140,7 +146,7 @@ class MatchInteractionScreen extends ConsumerWidget {
                               if (context.mounted) Navigator.of(context).pop();
                             },
                       icon: const Icon(Icons.block),
-                      label: const Text('Block'),
+                      label: Text(l10n.t('match.block')),
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -159,12 +165,12 @@ class MatchInteractionScreen extends ConsumerWidget {
                               if (context.mounted) {
                                 _showSnack(
                                   context,
-                                  'Report submitted for moderation.',
+                                  l10n.t('match.reportSubmitted'),
                                 );
                               }
                             },
                       icon: const Icon(Icons.flag_outlined),
-                      label: const Text('Report'),
+                      label: Text(l10n.t('match.report')),
                     ),
                   ),
                 ],
@@ -200,8 +206,8 @@ class MatchInteractionScreen extends ConsumerWidget {
               conversationId: match.conversationId ?? match.id,
               currentUserId: currentUserId,
               title: option.type == InteractionOptionType.easyStart
-                  ? 'Easy Start'
-                  : 'Match chat',
+                  ? AppLocalizations.of(context).t('option.easyStart')
+                  : AppLocalizations.of(context).t('match.chat'),
               matchId: match.id,
               connectionId: connectionId,
               easyStart: option.type == InteractionOptionType.easyStart,
@@ -225,7 +231,7 @@ class MatchInteractionScreen extends ConsumerWidget {
         if (context.mounted) {
           _showSnack(
             context,
-            'Meet Now intent saved. No exact location is shared.',
+            AppLocalizations.of(context).t('match.meetNowSaved'),
           );
         }
       case InteractionOptionType.funGame:
@@ -267,7 +273,9 @@ class MatchInteractionScreen extends ConsumerWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const ListTile(title: Text('Choose social to reveal')),
+            ListTile(
+              title: Text(AppLocalizations.of(context).t('match.chooseSocial')),
+            ),
             ListTile(
               leading: const Icon(Icons.camera_alt_outlined),
               title: const Text('Instagram'),
@@ -340,7 +348,9 @@ class _RevealContent extends ConsumerWidget {
     final isReceiver = reveal.receiverId == currentUserId;
     if (reveal.canShowTo(currentUserId)) {
       return Text(
-        '${reveal.contactType.name}: ${reveal.revealedValue}',
+        AppLocalizations.of(
+          context,
+        ).revealValue(reveal.contactType.name, reveal.revealedValue ?? ''),
         style: const TextStyle(
           fontWeight: FontWeight.w800,
           color: NearoTheme.gold,
@@ -352,7 +362,7 @@ class _RevealContent extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Approve ${reveal.contactType.name} reveal?',
+            AppLocalizations.of(context).approveReveal(reveal.contactType.name),
             style: const TextStyle(fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 8),
@@ -365,7 +375,7 @@ class _RevealContent extends ConsumerWidget {
                       revealId: reveal.id,
                       status: ContactRevealStatus.declined,
                     ),
-                child: const Text('Decline'),
+                child: Text(AppLocalizations.of(context).t('reveal.decline')),
               ),
               const SizedBox(width: 8),
               ElevatedButton(
@@ -375,7 +385,7 @@ class _RevealContent extends ConsumerWidget {
                       revealId: reveal.id,
                       status: ContactRevealStatus.approved,
                     ),
-                child: const Text('Approve'),
+                child: Text(AppLocalizations.of(context).t('reveal.approve')),
               ),
             ],
           ),
@@ -383,7 +393,9 @@ class _RevealContent extends ConsumerWidget {
       );
     }
     return Text(
-      '${reveal.contactType.name} reveal: ${reveal.status.name}',
+      AppLocalizations.of(
+        context,
+      ).revealStatus(reveal.contactType.name, reveal.status.name),
       style: const TextStyle(color: NearoTheme.mutedText),
     );
   }
@@ -453,7 +465,9 @@ class _OptionTile extends StatelessWidget {
               const SizedBox(width: 18),
               Expanded(
                 child: Text(
-                  option.title,
+                  AppLocalizations.of(
+                    context,
+                  ).optionTitle(option.type.name, option.title),
                   style: Theme.of(
                     context,
                   ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800),

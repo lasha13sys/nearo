@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/localization/app_localizations.dart';
 import '../core/providers/app_providers.dart';
 import '../core/theme/nearo_theme.dart';
 import '../presentation/screens/auth/onboarding_screen.dart';
@@ -23,10 +25,14 @@ class _NearoAppState extends ConsumerState<NearoApp> {
 
   Future<void> _initNotifications() async {
     try {
-      final token = await ref.read(notificationServiceProvider).requestAndGetToken();
+      final token = await ref
+          .read(notificationServiceProvider)
+          .requestAndGetToken();
       final user = ref.read(authControllerProvider).valueOrNull;
       if (token != null && user != null) {
-        await ref.read(userRepositoryProvider).updateFcmToken(uid: user.uid, token: token);
+        await ref
+            .read(userRepositoryProvider)
+            .updateFcmToken(uid: user.uid, token: token);
       }
     } catch (_) {
       // Push permissions are non-blocking for the core Nearo flow.
@@ -36,10 +42,19 @@ class _NearoAppState extends ConsumerState<NearoApp> {
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authControllerProvider);
+    final locale = ref.watch(appLocaleProvider);
 
     return MaterialApp(
-      title: 'Nearo',
+      onGenerateTitle: (context) => AppLocalizations.of(context).t('app.name'),
       debugShowCheckedModeBanner: false,
+      locale: locale,
+      supportedLocales: AppLocalizations.supportedLocales,
+      localizationsDelegates: const [
+        AppLocalizations.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
       theme: NearoTheme.darkTheme,
       home: authState.when(
         data: (user) {
@@ -65,8 +80,6 @@ class _BootstrapScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      body: Center(child: CircularProgressIndicator()),
-    );
+    return const Scaffold(body: Center(child: CircularProgressIndicator()));
   }
 }
