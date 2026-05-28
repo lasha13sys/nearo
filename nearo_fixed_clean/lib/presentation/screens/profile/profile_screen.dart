@@ -144,14 +144,28 @@ class ProfileScreen extends ConsumerWidget {
                       ),
                       const SizedBox(height: 12),
                       SegmentedButton<Locale>(
+                        showSelectedIcon: false,
+                        style: const ButtonStyle(
+                          minimumSize: WidgetStatePropertyAll(Size(112, 42)),
+                          padding: WidgetStatePropertyAll(
+                            EdgeInsets.symmetric(horizontal: 14),
+                          ),
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
                         segments: [
                           ButtonSegment<Locale>(
                             value: const Locale('en'),
-                            label: Text(l10n.t('language.english')),
+                            label: Text(
+                              l10n.t('language.english'),
+                              softWrap: false,
+                            ),
                           ),
                           ButtonSegment<Locale>(
                             value: const Locale('ka'),
-                            label: Text(l10n.t('language.georgian')),
+                            label: Text(
+                              l10n.t('language.georgian'),
+                              softWrap: false,
+                            ),
                           ),
                         ],
                         selected: {locale},
