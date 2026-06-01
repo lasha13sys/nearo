@@ -197,7 +197,7 @@ class ProfileScreen extends ConsumerWidget {
                       Text(l10n.t('profile.safetyText')),
                       const SizedBox(height: 12),
                       OutlinedButton.icon(
-                        onPressed: () {},
+                        onPressed: () => _showSafetyTools(context),
                         icon: const Icon(Icons.shield_outlined),
                         label: Text(l10n.t('profile.safetyTools')),
                       ),
@@ -210,6 +210,47 @@ class ProfileScreen extends ConsumerWidget {
         },
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (_, __) => Center(child: Text(l10n.t('profile.loadError'))),
+      ),
+    );
+  }
+
+  void _showSafetyTools(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.block),
+                title: Text(l10n.t('profile.safetyBlockTitle')),
+                subtitle: Text(l10n.t('profile.safetyBlockText')),
+              ),
+              ListTile(
+                leading: const Icon(Icons.flag_outlined),
+                title: Text(l10n.t('profile.safetyReportTitle')),
+                subtitle: Text(l10n.t('profile.safetyReportText')),
+              ),
+              ListTile(
+                leading: const Icon(Icons.lock_outline),
+                title: Text(l10n.t('profile.safetyRevealTitle')),
+                subtitle: Text(l10n.t('profile.safetyRevealText')),
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: Text(l10n.t('common.done')),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

@@ -195,7 +195,11 @@ class _HomeLandingScreen extends ConsumerWidget {
                     title: Text(nearby.first.nickname),
                     subtitle: Text(nearby.first.moodStatus),
                     trailing: const Icon(Icons.chevron_right),
-                    onTap: () {},
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const NearbyScreen(),
+                      ),
+                    ),
                   ),
                 ),
               const SizedBox(height: 18),

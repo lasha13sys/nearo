@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/localization/app_localizations.dart';
 import '../../../core/providers/app_providers.dart';
 import '../../../core/theme/nearo_theme.dart';
 import '../../../domain/entities/chat_message.dart';
@@ -48,6 +49,13 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
     final connection = widget.connectionId == null
         ? null
         : ref.watch(connectionProvider(widget.connectionId!));
+    final l10n = AppLocalizations.of(context);
+    final conversationData = conversation.valueOrNull;
+    final userIds = conversationData?.userIds ?? const <String>[];
+    final otherUserId = userIds
+        .where((id) => id != widget.currentUserId)
+        .cast<String?>()
+        .firstWhere((id) => id != null, orElse: () => null);
 
     return Scaffold(
       body: Container(
@@ -106,7 +114,8 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                       ),
                     ),
                     IconButton.filledTonal(
-                      onPressed: () {},
+                      onPressed: () =>
+                          _showConversationActions(context, ref, otherUserId),
                       icon: const Icon(Icons.more_horiz),
                     ),
                   ],
@@ -119,7 +128,11 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                       : Padding(
                           padding: const EdgeInsets.only(bottom: 8),
                           child: Text(
-                            'Temporary connection ends at ${TimeOfDay.fromDateTime(item!.temporaryTimerEndsAt!).format(context)}',
+                            l10n.temporaryConnectionUntil(
+                              TimeOfDay.fromDateTime(
+                                item!.temporaryTimerEndsAt!,
+                              ).format(context),
+                            ),
                             style: const TextStyle(color: NearoTheme.gold),
                           ),
                         ),
@@ -191,15 +204,15 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
                   child: Row(
                     children: [
                       IconButton.filledTonal(
-                        onPressed: () {},
+                        onPressed: () => _showQuickPrompts(context),
                         icon: const Icon(Icons.add),
                       ),
                       const SizedBox(width: 10),
                       Expanded(
                         child: TextField(
                           controller: _controller,
-                          decoration: const InputDecoration(
-                            hintText: 'Type a message...',
+                          decoration: InputDecoration(
+                            hintText: l10n.t('chat.typeMessage'),
                           ),
                         ),
                       ),
@@ -247,12 +260,123 @@ class _ConversationScreenState extends ConsumerState<ConversationScreen> {
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not send message.')),
+          SnackBar(
+            content: Text(AppLocalizations.of(context).t('chat.sendError')),
+          ),
         );
       }
     } finally {
       if (mounted) setState(() => _sending = false);
     }
+  }
+
+  void _showQuickPrompts(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final prompts = [
+      l10n.t('chat.promptCoffee'),
+      l10n.t('chat.promptFun'),
+      l10n.t('chat.promptEasyStart'),
+    ];
+
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(title: Text(l10n.t('chat.quickPrompts'))),
+              for (final prompt in prompts)
+                ListTile(
+                  leading: const Icon(Icons.auto_awesome),
+                  title: Text(prompt),
+                  onTap: () {
+                    Navigator.of(sheetContext).pop();
+                    _controller.text = prompt;
+                    _controller.selection = TextSelection.collapsed(
+                      offset: prompt.length,
+                    );
+                  },
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showConversationActions(
+    BuildContext context,
+    WidgetRef ref,
+    String? otherUserId,
+  ) {
+    final l10n = AppLocalizations.of(context);
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(title: Text(l10n.t('chat.actions'))),
+              ListTile(
+                leading: const Icon(Icons.block),
+                title: Text(l10n.t('match.block')),
+                enabled: otherUserId != null,
+                onTap: otherUserId == null
+                    ? null
+                    : () async {
+                        Navigator.of(sheetContext).pop();
+                        await ref
+                            .read(userRepositoryProvider)
+                            .blockUser(
+                              currentUserId: widget.currentUserId,
+                              blockedUserId: otherUserId,
+                            );
+                        if (context.mounted) Navigator.of(context).pop();
+                      },
+              ),
+              ListTile(
+                leading: const Icon(Icons.flag_outlined),
+                title: Text(l10n.t('match.report')),
+                enabled: otherUserId != null,
+                onTap: otherUserId == null
+                    ? null
+                    : () async {
+                        Navigator.of(sheetContext).pop();
+                        await ref
+                            .read(reportServiceProvider)
+                            .reportUser(
+                              reporterId: widget.currentUserId,
+                              reportedUserId: otherUserId,
+                              reason: 'chat_safety_concern',
+                            );
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(l10n.t('match.reportSubmitted')),
+                            ),
+                          );
+                        }
+                      },
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  onPressed: () => Navigator.of(sheetContext).pop(),
+                  child: Text(l10n.t('common.cancel')),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 

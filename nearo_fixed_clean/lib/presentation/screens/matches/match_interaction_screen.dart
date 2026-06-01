@@ -50,7 +50,8 @@ class MatchInteractionScreen extends ConsumerWidget {
                   ),
                   const Spacer(),
                   IconButton.filledTonal(
-                    onPressed: () {},
+                    onPressed: () =>
+                        _showMatchActions(context, ref, otherUserId),
                     icon: const Icon(Icons.more_horiz),
                   ),
                 ],
@@ -263,6 +264,69 @@ class MatchInteractionScreen extends ConsumerWidget {
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  void _showMatchActions(
+    BuildContext context,
+    WidgetRef ref,
+    String otherUserId,
+  ) {
+    final l10n = AppLocalizations.of(context);
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.block),
+                title: Text(l10n.t('match.block')),
+                enabled: otherUserId.isNotEmpty,
+                onTap: () async {
+                  Navigator.of(sheetContext).pop();
+                  await ref
+                      .read(userRepositoryProvider)
+                      .blockUser(
+                        currentUserId: currentUserId,
+                        blockedUserId: otherUserId,
+                      );
+                  if (context.mounted) Navigator.of(context).pop();
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.flag_outlined),
+                title: Text(l10n.t('match.report')),
+                enabled: otherUserId.isNotEmpty,
+                onTap: () async {
+                  Navigator.of(sheetContext).pop();
+                  await ref
+                      .read(reportServiceProvider)
+                      .reportUser(
+                        reporterId: currentUserId,
+                        reportedUserId: otherUserId,
+                        reason: 'safety_concern',
+                      );
+                  if (context.mounted) {
+                    _showSnack(context, l10n.t('match.reportSubmitted'));
+                  }
+                },
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  onPressed: () => Navigator.of(sheetContext).pop(),
+                  child: Text(l10n.t('common.cancel')),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Future<ContactRevealType?> _pickSocialType(BuildContext context) {
