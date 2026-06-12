@@ -113,6 +113,9 @@ const _en = {
   'home.matchSubtitle':
       'Choose Meet Now, Easy Start, Fun Game, or contact reveal.',
   'home.activeMatches': 'active matches',
+  'home.peopleOpen': 'Open',
+  'home.matchesTonight': 'Matches',
+  'home.visible': 'Visible',
   'auth.phoneHelp':
       'Enter your phone number to connect with people who are actually nearby.',
   'auth.phoneNumber': 'Phone number',
@@ -242,6 +245,9 @@ const _ka = {
   'home.matchSubtitle':
       'აირჩიე Meet Now, Easy Start, Fun Game ან კონტაქტის გაზიარება.',
   'home.activeMatches': 'აქტიური match',
+  'home.peopleOpen': 'ღია',
+  'home.matchesTonight': 'Match',
+  'home.visible': 'ხილული',
   'auth.phoneHelp':
       'შეიყვანე ტელეფონის ნომერი, რომ დაუკავშირდე რეალურად ახლომყოფ ადამიანებს.',
   'auth.phoneNumber': 'ტელეფონის ნომერი',

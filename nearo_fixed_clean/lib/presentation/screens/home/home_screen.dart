@@ -31,35 +31,42 @@ class _HomeScreenState extends State<HomeScreen> {
     final l10n = AppLocalizations.of(context);
 
     return Scaffold(
+      extendBody: true,
       body: _screens[_index],
-      bottomNavigationBar: DecoratedBox(
-        decoration: BoxDecoration(
-          color: NearoTheme.surface,
-          border: Border(
-            top: BorderSide(color: Colors.white.withValues(alpha: 0.06)),
+      bottomNavigationBar: SafeArea(
+        minimum: const EdgeInsets.fromLTRB(18, 0, 18, 14),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: NearoTheme.glass,
+            borderRadius: BorderRadius.circular(30),
+            border: Border.all(color: NearoTheme.glassBorder),
+            boxShadow: NearoTheme.glowShadow(NearoTheme.neon, opacity: 0.18),
           ),
-        ),
-        child: BottomNavigationBar(
-          currentIndex: _index,
-          onTap: (value) => setState(() => _index = value),
-          items: [
-            BottomNavigationBarItem(
-              icon: const Icon(Icons.home_outlined),
-              label: l10n.t('nav.home'),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(30),
+            child: BottomNavigationBar(
+              currentIndex: _index,
+              onTap: (value) => setState(() => _index = value),
+              items: [
+                BottomNavigationBarItem(
+                  icon: const Icon(Icons.home_outlined),
+                  label: l10n.t('nav.home'),
+                ),
+                BottomNavigationBarItem(
+                  icon: const Icon(Icons.radar),
+                  label: l10n.t('nav.nearby'),
+                ),
+                BottomNavigationBarItem(
+                  icon: const Icon(Icons.location_on_outlined),
+                  label: l10n.t('nav.spots'),
+                ),
+                BottomNavigationBarItem(
+                  icon: const Icon(Icons.person),
+                  label: l10n.t('nav.profile'),
+                ),
+              ],
             ),
-            BottomNavigationBarItem(
-              icon: const Icon(Icons.radar),
-              label: l10n.t('nav.nearby'),
-            ),
-            BottomNavigationBarItem(
-              icon: const Icon(Icons.location_on_outlined),
-              label: l10n.t('nav.spots'),
-            ),
-            BottomNavigationBarItem(
-              icon: const Icon(Icons.person),
-              label: l10n.t('nav.profile'),
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -78,13 +85,7 @@ class _HomeLandingScreen extends ConsumerWidget {
 
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(
-          gradient: RadialGradient(
-            center: Alignment.topCenter,
-            radius: 1.15,
-            colors: [Color(0x332D2466), NearoTheme.charcoal],
-          ),
-        ),
+        decoration: const BoxDecoration(gradient: NearoTheme.pageGradient),
         child: SafeArea(
           child: ListView(
             padding: const EdgeInsets.fromLTRB(20, 24, 20, 110),
@@ -135,15 +136,52 @@ class _HomeLandingScreen extends ConsumerWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 80),
+              const SizedBox(height: 42),
+              Container(
+                padding: const EdgeInsets.all(18),
+                decoration: NearoTheme.glassDecoration(
+                  radius: 28,
+                  glowColor: NearoTheme.gold,
+                  glowOpacity: 0.14,
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: _LiveMetric(
+                        icon: Icons.groups_2_outlined,
+                        value: '${nearby.length}',
+                        label: l10n.t('home.peopleOpen'),
+                      ),
+                    ),
+                    Expanded(
+                      child: _LiveMetric(
+                        icon: Icons.favorite_border,
+                        value: '${matches.length}',
+                        label: l10n.t('home.matchesTonight'),
+                      ),
+                    ),
+                    Expanded(
+                      child: _LiveMetric(
+                        icon: profile?.visible == true
+                            ? Icons.visibility_outlined
+                            : Icons.visibility_off_outlined,
+                        value: profile?.visible == true
+                            ? l10n.t('profile.yes')
+                            : l10n.t('profile.no'),
+                        label: l10n.t('home.visible'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 22),
               Container(
                 padding: const EdgeInsets.all(22),
-                decoration: BoxDecoration(
-                  color: NearoTheme.surface.withValues(alpha: 0.76),
-                  borderRadius: BorderRadius.circular(36),
-                  border: Border.all(
-                    color: NearoTheme.neon.withValues(alpha: 0.22),
-                  ),
+                decoration: NearoTheme.glassDecoration(
+                  radius: 32,
+                  borderColor: NearoTheme.neon.withValues(alpha: 0.28),
+                  glowColor: NearoTheme.neon,
+                  glowOpacity: 0.18,
                 ),
                 child: Row(
                   children: [
@@ -175,13 +213,11 @@ class _HomeLandingScreen extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 34),
-              Center(
-                child: Text(
-                  l10n.peopleNearby(nearby.length),
-                  style: const TextStyle(
-                    color: NearoTheme.mutedText,
-                    fontSize: 18,
-                  ),
+              Text(
+                l10n.peopleNearby(nearby.length),
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  color: NearoTheme.mutedText,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
               const SizedBox(height: 28),
@@ -223,6 +259,42 @@ class _HomeLandingScreen extends ConsumerWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _LiveMetric extends StatelessWidget {
+  final IconData icon;
+  final String value;
+  final String label;
+
+  const _LiveMetric({
+    required this.icon,
+    required this.value,
+    required this.label,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Icon(icon, color: NearoTheme.gold),
+        const SizedBox(height: 8),
+        Text(
+          value,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          textAlign: TextAlign.center,
+          style: const TextStyle(color: NearoTheme.mutedText, fontSize: 12),
+        ),
+      ],
     );
   }
 }

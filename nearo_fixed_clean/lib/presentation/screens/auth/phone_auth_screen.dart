@@ -33,129 +33,134 @@ class _PhoneAuthScreenState extends ConsumerState<PhoneAuthScreen> {
 
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(
-          gradient: RadialGradient(
-            center: Alignment.topRight,
-            radius: 1.2,
-            colors: [Color(0x332F1B66), NearoTheme.charcoal],
-          ),
-        ),
+        decoration: const BoxDecoration(gradient: NearoTheme.pageGradient),
         child: SafeArea(
           child: Center(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(24),
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 460),
-                child: Form(
-                  key: _formKey,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Text(
-                        l10n.t('app.name'),
-                        style: Theme.of(context).textTheme.displaySmall
-                            ?.copyWith(
-                              color: NearoTheme.neon,
-                              fontWeight: FontWeight.w800,
+                child: Container(
+                  padding: const EdgeInsets.all(22),
+                  decoration: NearoTheme.glassDecoration(
+                    radius: 30,
+                    borderColor: NearoTheme.neon.withValues(alpha: 0.22),
+                    glowColor: NearoTheme.neon,
+                    glowOpacity: 0.16,
+                  ),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text(
+                          l10n.t('app.name'),
+                          style: Theme.of(context).textTheme.displaySmall
+                              ?.copyWith(
+                                color: NearoTheme.neon,
+                                fontWeight: FontWeight.w800,
+                              ),
+                        ),
+                        const SizedBox(height: 14),
+                        Text(
+                          l10n.t('app.tagline'),
+                          style: Theme.of(context).textTheme.headlineMedium
+                              ?.copyWith(fontWeight: FontWeight.w700),
+                        ),
+                        const SizedBox(height: 16),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: SegmentedButton<Locale>(
+                            showSelectedIcon: false,
+                            style: const ButtonStyle(
+                              minimumSize: WidgetStatePropertyAll(
+                                Size(112, 42),
+                              ),
+                              padding: WidgetStatePropertyAll(
+                                EdgeInsets.symmetric(horizontal: 14),
+                              ),
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                             ),
-                      ),
-                      const SizedBox(height: 14),
-                      Text(
-                        l10n.t('app.tagline'),
-                        style: Theme.of(context).textTheme.headlineMedium
-                            ?.copyWith(fontWeight: FontWeight.w700),
-                      ),
-                      const SizedBox(height: 16),
-                      Align(
-                        alignment: Alignment.centerLeft,
-                        child: SegmentedButton<Locale>(
-                          showSelectedIcon: false,
-                          style: const ButtonStyle(
-                            minimumSize: WidgetStatePropertyAll(Size(112, 42)),
-                            padding: WidgetStatePropertyAll(
-                              EdgeInsets.symmetric(horizontal: 14),
-                            ),
-                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            segments: [
+                              ButtonSegment<Locale>(
+                                value: const Locale('en'),
+                                label: Text(
+                                  l10n.t('language.english'),
+                                  softWrap: false,
+                                ),
+                              ),
+                              ButtonSegment<Locale>(
+                                value: const Locale('ka'),
+                                label: Text(
+                                  l10n.t('language.georgian'),
+                                  softWrap: false,
+                                ),
+                              ),
+                            ],
+                            selected: {locale},
+                            onSelectionChanged: (selection) {
+                              ref
+                                  .read(appLocaleProvider.notifier)
+                                  .setLocale(selection.first);
+                            },
                           ),
-                          segments: [
-                            ButtonSegment<Locale>(
-                              value: const Locale('en'),
-                              label: Text(
-                                l10n.t('language.english'),
-                                softWrap: false,
-                              ),
-                            ),
-                            ButtonSegment<Locale>(
-                              value: const Locale('ka'),
-                              label: Text(
-                                l10n.t('language.georgian'),
-                                softWrap: false,
-                              ),
-                            ),
-                          ],
-                          selected: {locale},
-                          onSelectionChanged: (selection) {
-                            ref
-                                .read(appLocaleProvider.notifier)
-                                .setLocale(selection.first);
-                          },
                         ),
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        l10n.t('auth.phoneHelp'),
-                        style: const TextStyle(color: NearoTheme.mutedText),
-                      ),
-                      const SizedBox(height: 28),
-                      if (!firebaseReady) const _DemoNotice(),
-                      const SizedBox(height: 16),
-                      TextFormField(
-                        controller: _phoneController,
-                        keyboardType: TextInputType.phone,
-                        decoration: InputDecoration(
-                          labelText: l10n.t('auth.phoneNumber'),
-                          prefixIcon: const Icon(Icons.phone_outlined),
-                        ),
-                        validator: (value) {
-                          final phone = value?.trim() ?? '';
-                          if (phone.length < 8 || !phone.startsWith('+')) {
-                            return l10n.t('auth.phoneValidation');
-                          }
-                          return null;
-                        },
-                      ),
-                      if (_error != null) ...[
                         const SizedBox(height: 12),
                         Text(
-                          _error!,
-                          style: TextStyle(
-                            color: Theme.of(context).colorScheme.error,
+                          l10n.t('auth.phoneHelp'),
+                          style: const TextStyle(color: NearoTheme.mutedText),
+                        ),
+                        const SizedBox(height: 28),
+                        if (!firebaseReady) const _DemoNotice(),
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          controller: _phoneController,
+                          keyboardType: TextInputType.phone,
+                          decoration: InputDecoration(
+                            labelText: l10n.t('auth.phoneNumber'),
+                            prefixIcon: const Icon(Icons.phone_outlined),
                           ),
+                          validator: (value) {
+                            final phone = value?.trim() ?? '';
+                            if (phone.length < 8 || !phone.startsWith('+')) {
+                              return l10n.t('auth.phoneValidation');
+                            }
+                            return null;
+                          },
+                        ),
+                        if (_error != null) ...[
+                          const SizedBox(height: 12),
+                          Text(
+                            _error!,
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.error,
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 22),
+                        ElevatedButton(
+                          onPressed: _loading ? null : _sendCode,
+                          child: _loading
+                              ? const SizedBox(
+                                  height: 22,
+                                  width: 22,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : Text(l10n.t('auth.sendSmsCode')),
+                        ),
+                        const SizedBox(height: 12),
+                        OutlinedButton(
+                          onPressed: _loading
+                              ? null
+                              : () => ref
+                                    .read(authControllerProvider.notifier)
+                                    .continueAsDemo(),
+                          child: Text(l10n.t('auth.continueDemo')),
                         ),
                       ],
-                      const SizedBox(height: 22),
-                      ElevatedButton(
-                        onPressed: _loading ? null : _sendCode,
-                        child: _loading
-                            ? const SizedBox(
-                                height: 22,
-                                width: 22,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                ),
-                              )
-                            : Text(l10n.t('auth.sendSmsCode')),
-                      ),
-                      const SizedBox(height: 12),
-                      OutlinedButton(
-                        onPressed: _loading
-                            ? null
-                            : () => ref
-                                  .read(authControllerProvider.notifier)
-                                  .continueAsDemo(),
-                        child: Text(l10n.t('auth.continueDemo')),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
               ),

@@ -26,13 +26,7 @@ class _NearbyScreenState extends ConsumerState<NearbyScreen> {
 
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(
-          gradient: RadialGradient(
-            center: Alignment.topRight,
-            radius: 1.25,
-            colors: [Color(0x44311754), NearoTheme.charcoal],
-          ),
-        ),
+        decoration: const BoxDecoration(gradient: NearoTheme.pageGradient),
         child: SafeArea(
           child: RefreshIndicator(
             onRefresh: () async => ref.invalidate(nearbyUsersProvider),
@@ -162,10 +156,11 @@ class _VisibilityPanel extends ConsumerWidget {
     final l10n = AppLocalizations.of(context);
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: NearoTheme.surface.withValues(alpha: 0.74),
-        borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: NearoTheme.neon.withValues(alpha: 0.22)),
+      decoration: NearoTheme.glassDecoration(
+        radius: 28,
+        borderColor: NearoTheme.neon.withValues(alpha: 0.26),
+        glowColor: NearoTheme.neon,
+        glowOpacity: 0.14,
       ),
       child: Row(
         children: [
@@ -264,15 +259,17 @@ class _NearbyUserCardState extends ConsumerState<_NearbyUserCard> {
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: NearoTheme.surface.withValues(alpha: 0.78),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            NearoTheme.surface.withValues(alpha: 0.94),
+            NearoTheme.elevated.withValues(alpha: 0.78),
+          ],
+        ),
         borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
-        boxShadow: [
-          BoxShadow(
-            color: NearoTheme.neon.withValues(alpha: 0.12),
-            blurRadius: 24,
-          ),
-        ],
+        border: Border.all(color: NearoTheme.glassBorder),
+        boxShadow: NearoTheme.glowShadow(NearoTheme.neon, opacity: 0.13),
       ),
       child: Row(
         children: [
